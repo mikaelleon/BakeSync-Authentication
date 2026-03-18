@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile & Settings - BakeSync</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
+        <path d="m4.6 13.11 5.79-3.21c1.89-1.05 4.79 1.78 3.71 3.71l-3.22 5.81C8.8 23.16.79 15.23 4.6 13.11Z"/>
+        <path d="m10.5 9.5-1-2.29C9.2 6.48 8.8 6 8 6H4.5C2.79 6 2 6.5 2 8.5a7.71 7.71 0 0 0 2 4.83"/>
+        <path d="M8 6c0-1.55.24-4-2-4-2 0-2.5 2.17-2.5 4"/>
+        <path d="m14.5 13.5 2.29 1c.73.3 1.21.7 1.21 1.5v3.5c0 1.71-.5 2.5-2.5 2.5a7.71 7.71 0 0 1-4.83-2"/>
+        <path d="M18 16c1.55 0 4-.24 4 2 0 2-2.17 2.5-4 2.5"/>
+      </svg>
+      <h1>BakeSync</h1>
+    </div>
+    <div class="navbar-user">
+      <span id="navbar-username"></span>
+      <span id="navbar-role" class="badge"></span>
+      <button id="logout-btn" class="btn btn-outline btn-sm">Logout</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h2>Profile & Settings</h2>
+      <p>Update your account details or delete your account.</p>
+    </div>
+
+    <div id="error-alert" class="alert alert-destructive" style="display: none;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+        <path d="M12 9v4"/>
+        <path d="M12 17h.01"/>
+      </svg>
+      <span id="error-message"></span>
+    </div>
+
+    <div id="success-alert" class="alert alert-success" style="display: none;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <span id="success-message"></span>
+    </div>
+
+    <div class="content-card">
+      <h3>Account details</h3>
+      <form id="profile-form" class="space-y-4">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input id="username" type="text" autocomplete="username" required />
+          <p class="field-hint text-sm text-muted">3–50 characters. Must be unique.</p>
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required />
+          <p class="field-hint text-sm text-muted">Must be unique.</p>
+        </div>
+        <button id="save-btn" class="btn btn-primary" type="submit">Save changes</button>
+      </form>
+    </div>
+
+    <div class="content-card">
+      <h3>Delete account (OTP required)</h3>
+      <p class="text-sm text-muted" style="margin-bottom: 1rem;">
+        We’ll email you a 6-digit OTP code. Enter it to permanently delete your account.
+      </p>
+
+      <div class="upload-form" style="margin-bottom: 1rem;">
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <button id="request-delete-otp-btn" class="btn btn-outline" type="button">Send deletion OTP to my email</button>
+        </div>
+      </div>
+
+      <form id="delete-form" class="upload-form">
+        <div class="form-group">
+          <label for="delete-otp">Deletion OTP</label>
+          <input id="delete-otp" type="text" placeholder="000000" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required />
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button id="confirm-delete-btn" class="btn btn-destructive" type="submit">Delete my account</button>
+        </div>
+      </form>
+    </div>
+
+    <button onclick="history.back()" class="btn btn-outline">Back</button>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/dashboard.js"></script>
+  <script src="../js/profile.js"></script>
+</body>
+</html>
