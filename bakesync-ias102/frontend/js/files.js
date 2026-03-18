@@ -202,11 +202,12 @@ function closeModal() {
  */
 function showError(message) {
     const alert = document.getElementById('error-alert');
-    alert.textContent = message;
-    alert.classList.add('show');
+    const msgSpan = document.getElementById('error-message');
+    if (msgSpan) msgSpan.textContent = message;
+    alert.style.display = 'flex';
 
     setTimeout(() => {
-        alert.classList.remove('show');
+        alert.style.display = 'none';
     }, 5000);
 }
 
@@ -215,11 +216,12 @@ function showError(message) {
  */
 function showSuccess(message) {
     const alert = document.getElementById('success-alert');
-    alert.textContent = message;
-    alert.classList.add('show');
+    const msgSpan = document.getElementById('success-message');
+    if (msgSpan) msgSpan.textContent = message;
+    alert.style.display = 'flex';
 
     setTimeout(() => {
-        alert.classList.remove('show');
+        alert.style.display = 'none';
     }, 3000);
 }
 

@@ -11,7 +11,7 @@ async function handleLogin(event) {
     const errorAlert = document.getElementById('error-alert');
     const submitBtn = document.getElementById('submit-btn');
 
-    errorAlert.classList.remove('show');
+    errorAlert.style.display = 'none';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in...';
 
@@ -25,8 +25,9 @@ async function handleLogin(event) {
         // Redirect to OTP page
         window.location.href = 'otp.html';
     } catch (error) {
-        errorAlert.textContent = error.message;
-        errorAlert.classList.add('show');
+        const errorMsg = document.getElementById('error-message');
+        if (errorMsg) errorMsg.textContent = error.message;
+        errorAlert.style.display = 'flex';
         submitBtn.disabled = false;
         submitBtn.textContent = 'Sign In';
     }
@@ -48,7 +49,7 @@ async function handleOTPVerify(event) {
         return;
     }
 
-    errorAlert.classList.remove('show');
+    errorAlert.style.display = 'none';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Verifying...';
 
@@ -75,8 +76,9 @@ async function handleOTPVerify(event) {
 
         window.location.href = dashboardMap[data.role] || 'dashboard-user.html';
     } catch (error) {
-        errorAlert.textContent = error.message;
-        errorAlert.classList.add('show');
+        const errorMsg = document.getElementById('error-message');
+        if (errorMsg) errorMsg.textContent = error.message;
+        errorAlert.style.display = 'flex';
         submitBtn.disabled = false;
         submitBtn.textContent = 'Verify OTP';
     }

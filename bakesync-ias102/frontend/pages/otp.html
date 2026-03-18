@@ -8,52 +8,66 @@
 </head>
 <body>
     <div class="auth-container">
-        <div class="auth-card">
-            <div class="logo">
-                <h1>BakeSync</h1>
-                <p>Bakery Management System</p>
-            </div>
-
-            <h2>Two-Factor Authentication</h2>
-            <p class="subtitle">
-                A 6-digit OTP has been generated for <strong id="username-display"></strong>.<br>
-                Check the server console for your code.
-            </p>
-
-            <div id="error-alert" class="alert alert-error"></div>
-
-            <form id="otp-form" onsubmit="handleOTPVerify(event)">
-                <div class="form-group">
-                    <label for="otp">Enter OTP Code</label>
-                    <input
-                        type="text"
-                        id="otp"
-                        name="otp"
-                        placeholder="000000"
-                        maxlength="6"
-                        pattern="[0-9]{6}"
-                        required
-                        autocomplete="one-time-code"
-                        style="text-align: center; font-size: 24px; letter-spacing: 8px;"
-                    >
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">
+                    <!-- Shield Check Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                        <path d="m9 12 2 2 4-4"/>
+                    </svg>
                 </div>
-
-                <button type="submit" id="submit-btn" class="btn btn-primary btn-full">
-                    Verify OTP
-                </button>
-            </form>
-
-            <div style="margin-top: 24px; text-align: center;">
-                <a href="login.html" style="color: var(--primary); text-decoration: none; font-size: 14px;">
-                    Back to Login
-                </a>
+                <div>
+                    <h1 class="card-title">Two-Factor Authentication</h1>
+                    <p class="card-description">
+                        A 6-digit OTP has been generated for <strong id="username-display"></strong>.<br>
+                        Check the server console for your code.
+                    </p>
+                </div>
             </div>
 
-            <div style="margin-top: 24px; padding: 16px; background: var(--background); border-radius: 8px;">
-                <p style="color: var(--text-secondary); font-size: 12px; text-align: center;">
-                    <strong>Note:</strong> In this prototype, the OTP appears in the server console only.
-                    In production, it would be sent via SMS or email.
-                </p>
+            <div class="card-content">
+                <form id="otp-form" onsubmit="handleOTPVerify(event)">
+                    <div id="error-alert" class="alert alert-destructive" style="display: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                            <path d="M12 9v4"/>
+                            <path d="M12 17h.01"/>
+                        </svg>
+                        <span id="error-message"></span>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="form-group">
+                            <label for="otp">Enter OTP Code</label>
+                            <input
+                                type="text"
+                                id="otp"
+                                name="otp"
+                                class="otp-input"
+                                placeholder="000000"
+                                maxlength="6"
+                                pattern="[0-9]{6}"
+                                required
+                                autocomplete="one-time-code"
+                            >
+                        </div>
+
+                        <button type="submit" id="submit-btn" class="btn btn-primary btn-full">
+                            Verify OTP
+                        </button>
+
+                        <div class="text-center">
+                            <a href="login.html" class="link text-sm">Back to Login</a>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="demo-box">
+                    <p class="demo-box-content" style="text-align: center;">
+                        <strong style="text-transform: none; font-size: 0.875rem;">Note:</strong> In this prototype, the OTP appears in the server console only. In production, it would be sent via SMS or email.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
