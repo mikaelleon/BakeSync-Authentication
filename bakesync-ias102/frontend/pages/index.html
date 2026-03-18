@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BakeSync - Redirecting...</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="logo">
+                <h1>BakeSync</h1>
+                <p>Bakery Management System</p>
+            </div>
+            <div class="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 16px;">Redirecting...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        // Redirect based on authentication status
+        if (isAuthenticated()) {
+            const role = sessionStorage.getItem('role');
+            const dashboardMap = {
+                'admin': 'dashboard-admin.html',
+                'staff': 'dashboard-staff.html',
+                'user': 'dashboard-user.html'
+            };
+            window.location.href = dashboardMap[role] || 'dashboard-user.html';
+        } else {
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

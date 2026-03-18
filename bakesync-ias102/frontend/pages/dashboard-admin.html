@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Dashboard - BakeSync</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <h1>BakeSync</h1>
+        </div>
+        <div class="navbar-user">
+            <span id="navbar-username"></span>
+            <span id="navbar-role" class="badge"></span>
+            <button id="logout-btn" class="btn btn-ghost btn-small">Logout</button>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h2>Manager Dashboard</h2>
+            <p>Welcome back! Here is your bakery overview.</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <div class="value" id="stat-users">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Files</h3>
+                <div class="value" id="stat-files">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>System Alerts</h3>
+                <div class="value" id="stat-alerts">-</div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h3>Recent Activity</h3>
+            <ul id="activity-list" class="activity-list">
+                <li class="loading">
+                    <div class="spinner"></div>
+                </li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 24px;">
+            <a href="files.html" class="btn btn-primary">Manage Files</a>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script>
+        loadAdminDashboard();
+    </script>
+</body>
+</html>

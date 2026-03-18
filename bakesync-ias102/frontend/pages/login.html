@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - BakeSync</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="logo">
+                <h1>BakeSync</h1>
+                <p>Bakery Management System</p>
+            </div>
+
+            <h2>Welcome Back</h2>
+            <p class="subtitle">Sign in to your account</p>
+
+            <div id="error-alert" class="alert alert-error"></div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        required
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn btn-primary btn-full">
+                    Sign In
+                </button>
+            </form>
+
+            <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center;">
+                <p style="color: var(--text-secondary); font-size: 13px;">
+                    <strong>Demo Accounts:</strong><br>
+                    Manager: manager_maria / admin123<br>
+                    Baker: baker_juan / staff123<br>
+                    Cashier: cashier_ana / user123
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+</body>
+</html>

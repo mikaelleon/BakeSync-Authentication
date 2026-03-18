@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Manager - BakeSync</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <h1>BakeSync</h1>
+        </div>
+        <div class="navbar-user">
+            <span id="navbar-username"></span>
+            <span id="navbar-role" class="badge"></span>
+            <button id="logout-btn" class="btn btn-ghost btn-small">Logout</button>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h2>BakeSync File Manager</h2>
+            <p>Files you own and public files are shown below. DAC (Discretionary Access Control) enforces file ownership.</p>
+        </div>
+
+        <div id="error-alert" class="alert alert-error"></div>
+        <div id="success-alert" class="alert alert-success"></div>
+
+        <!-- Upload Form -->
+        <div class="content-card">
+            <h3>Upload New File</h3>
+            <form id="upload-form" class="upload-form">
+                <div class="form-group">
+                    <label for="filename">Filename</label>
+                    <input type="text" id="filename" placeholder="e.g., cake_recipe.pdf" required>
+                </div>
+                <div class="form-group">
+                    <label for="file-type">File Type</label>
+                    <select id="file-type" required>
+                        <option value="">Select type...</option>
+                        <option value="recipe">Recipe</option>
+                        <option value="report">Report</option>
+                        <option value="schedule">Schedule</option>
+                        <option value="invoice">Invoice</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" placeholder="Optional description">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="is-public">
+                        Make file public
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload File</button>
+            </form>
+        </div>
+
+        <!-- File Table -->
+        <div class="content-card">
+            <h3>Your Files</h3>
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+            </div>
+            <table class="file-table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Type</th>
+                        <th>Owner</th>
+                        <th>Visibility</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="files-body">
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 24px;">
+            <button onclick="history.back()" class="btn btn-ghost">Back to Dashboard</button>
+        </div>
+    </div>
+
+    <!-- File Details Modal -->
+    <div id="file-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">File Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body">
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script src="../js/files.js"></script>
+    <script>
+        initFileManager();
+    </script>
+</body>
+</html>

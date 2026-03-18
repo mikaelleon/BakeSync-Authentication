@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baker Dashboard - BakeSync</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <h1>BakeSync</h1>
+        </div>
+        <div class="navbar-user">
+            <span id="navbar-username"></span>
+            <span id="navbar-role" class="badge"></span>
+            <button id="logout-btn" class="btn btn-ghost btn-small">Logout</button>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h2>Baker Dashboard</h2>
+            <p>Your production overview for today.</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3>Recipes Managed</h3>
+                <div class="value" id="stat-recipes">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Production Today</h3>
+                <div class="value" id="stat-production">-</div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h3>Today's Schedule</h3>
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Task</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="schedule-body">
+                    <tr>
+                        <td colspan="3" class="loading">
+                            <div class="spinner"></div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top: 24px;">
+            <a href="files.html" class="btn btn-primary">My Files</a>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script>
+        loadStaffDashboard();
+    </script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify OTP - BakeSync</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="logo">
+                <h1>BakeSync</h1>
+                <p>Bakery Management System</p>
+            </div>
+
+            <h2>Two-Factor Authentication</h2>
+            <p class="subtitle">
+                A 6-digit OTP has been generated for <strong id="username-display"></strong>.<br>
+                Check the server console for your code.
+            </p>
+
+            <div id="error-alert" class="alert alert-error"></div>
+
+            <form id="otp-form" onsubmit="handleOTPVerify(event)">
+                <div class="form-group">
+                    <label for="otp">Enter OTP Code</label>
+                    <input
+                        type="text"
+                        id="otp"
+                        name="otp"
+                        placeholder="000000"
+                        maxlength="6"
+                        pattern="[0-9]{6}"
+                        required
+                        autocomplete="one-time-code"
+                        style="text-align: center; font-size: 24px; letter-spacing: 8px;"
+                    >
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn btn-primary btn-full">
+                    Verify OTP
+                </button>
+            </form>
+
+            <div style="margin-top: 24px; text-align: center;">
+                <a href="login.html" style="color: var(--primary); text-decoration: none; font-size: 14px;">
+                    Back to Login
+                </a>
+            </div>
+
+            <div style="margin-top: 24px; padding: 16px; background: var(--background); border-radius: 8px;">
+                <p style="color: var(--text-secondary); font-size: 12px; text-align: center;">
+                    <strong>Note:</strong> In this prototype, the OTP appears in the server console only.
+                    In production, it would be sent via SMS or email.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script>
+        initOTPPage();
+    </script>
+</body>
+</html>
