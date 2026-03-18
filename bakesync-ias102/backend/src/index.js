@@ -18,6 +18,21 @@ app.use(cors({
 // Parse JSON bodies
 app.use(express.json());
 
+// Root endpoint
+app.get('/', (req, res) => {
+    res.status(200).json({
+        service: 'BakeSync API',
+        version: '1.0.0',
+        status: 'running',
+        endpoints: {
+            health: '/api/health',
+            auth: '/api/auth',
+            dashboard: '/api/dashboard',
+            files: '/api/files'
+        }
+    });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', service: 'bakesync-backend' });
