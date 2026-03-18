@@ -1,0 +1,3 @@
+WBS #,Group Name,Task Name,Start Date,End Date,Estimated Hours,% Complete,Notes,Comments,Task Color
+,Milestone,M8: User Acceptance Testing,2025-11-11,2025-11-11,0,0,"User acceptance testing completed with all stakeholders. UAT scenarios executed, feedback collected, critical issues resolved, and approval obtained. Target: User satisfaction >4.5/5.0 rating. System approved for launch.",,Red
+,Review - Ilagan,UAT Feedback Collection,2025-11-11,2025-11-11,0,0,"[Assigned to: Ilagan] Collect and analyze feedback from user acceptance testing. Prioritize issues, plan fixes, and determine if system meets acceptance criteria. Coordinate with stakeholders to address critical feedback and ensure user satisfaction targets are met.",,Red

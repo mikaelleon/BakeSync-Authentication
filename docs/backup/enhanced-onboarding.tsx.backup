@@ -1,0 +1,765 @@
+"use client"
+
+import React, { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { enhancedUserManager } from "@/lib/user-management-enhanced"
+import { teamManager } from "@/lib/team-management"
+import { notificationManager } from "@/lib/notification-system"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle, ArrowRight, ArrowLeft, Building2, Users, Settings, Bell, BarChart3 } from "lucide-react"
+
+interface OnboardingData {
+  businessName: string
+  businessType: 'bakery' | 'cafe' | 'restaurant' | 'food_truck' | 'other'
+  businessDescription?: string
+  address: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    country: string
+  }
+  contact: {
+    phone: string
+    website?: string
+    email: string
+  }
+  operatingHours: {
+    monday: { open: string; close: string; closed: boolean }
+    tuesday: { open: string; close: string; closed: boolean }
+    wednesday: { open: string; close: string; closed: boolean }
+    thursday: { open: string; close: string; closed: boolean }
+    friday: { open: string; close: string; closed: boolean }
+    saturday: { open: string; close: string; closed: boolean }
+    sunday: { open: string; close: string; closed: boolean }
+  }
+  preferences: {
+    timezone: string
+    currency: string
+    language: string
+    theme: 'light' | 'dark' | 'system'
+  }
+  notifications: {
+    email: boolean
+    push: boolean
+    lowStock: boolean
+    productionReminders: boolean
+    teamUpdates: boolean
+    systemAlerts: boolean
+  }
+  teamInvitations: Array<{
+    email: string
+    role: 'baker' | 'cashier'
+    message?: string
+  }>
+}
+
+const STEPS = [
+  { id: 'business', title: 'Business Details', icon: Building2 },
+  { id: 'location', title: 'Location & Contact', icon: Building2 },
+  { id: 'hours', title: 'Operating Hours', icon: Settings },
+  { id: 'preferences', title: 'Preferences', icon: Settings },
+  { id: 'notifications', title: 'Notifications', icon: Bell },
+  { id: 'team', title: 'Team Setup', icon: Users },
+  { id: 'complete', title: 'Complete', icon: CheckCircle }
+]
+
+export function EnhancedOnboarding() {
+  const { user } = useAuth()
+  const router = useRouter()
+  const [currentStep, setCurrentStep] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
+
+  const [data, setData] = useState<OnboardingData>({
+    businessName: '',
+    businessType: 'bakery',
+    businessDescription: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'US'
+    },
+    contact: {
+      phone: '',
+      website: '',
+      email: user?.email || ''
+    },
+    operatingHours: {
+      monday: { open: '08:00', close: '18:00', closed: false },
+      tuesday: { open: '08:00', close: '18:00', closed: false },
+      wednesday: { open: '08:00', close: '18:00', closed: false },
+      thursday: { open: '08:00', close: '18:00', closed: false },
+      friday: { open: '08:00', close: '18:00', closed: false },
+      saturday: { open: '08:00', close: '18:00', closed: false },
+      sunday: { open: '09:00', close: '17:00', closed: false }
+    },
+    preferences: {
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      currency: 'USD',
+      language: 'en',
+      theme: 'system'
+    },
+    notifications: {
+      email: true,
+      push: true,
+      lowStock: true,
+      productionReminders: true,
+      teamUpdates: true,
+      systemAlerts: true
+    },
+    teamInvitations: []
+  })
+
+  useEffect(() => {
+    // Load existing onboarding data if available
+    const savedData = localStorage.getItem('onboardingData')
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData)
+        setData(prev => ({ ...prev, ...parsed }))
+      } catch (error) {
+        console.error('Error loading saved onboarding data:', error)
+      }
+    }
+  }, [])
+
+  const updateData = (updates: Partial<OnboardingData>) => {
+    setData(prev => ({ ...prev, ...updates }))
+  }
+
+  const nextStep = () => {
+    if (currentStep < STEPS.length - 1) {
+      setCompletedSteps(prev => new Set([...prev, currentStep]))
+      setCurrentStep(prev => prev + 1)
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1)
+    }
+  }
+
+  const handleComplete = async () => {
+    if (!user) return
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Create bakeshop
+      const { createClient } = await import('@/lib/supabase-client')
+      const supabase = createClient()
+
+      const { data: bakeshop, error: bakeshopError } = await supabase
+        .from('bakeshops')
+        .insert({
+          name: data.businessName,
+          business_type: data.businessType,
+          description: data.businessDescription,
+          address: data.address,
+          contact_info: data.contact,
+          operating_hours: data.operatingHours,
+          timezone: data.preferences.timezone,
+          currency: data.preferences.currency,
+          language: data.preferences.language,
+          created_by: user.id
+        })
+        .select()
+        .single()
+
+      if (bakeshopError) throw bakeshopError
+
+      // Update user profile with bakeshop info
+      await enhancedUserManager.updateUserProfile(user.id, {
+        bakeshopId: bakeshop.id,
+        bakeshopName: bakeshop.name
+      })
+
+      // Update user preferences
+      await enhancedUserManager.updateUserPreferences(user.id, {
+        theme: data.preferences.theme,
+        language: data.preferences.language,
+        timezone: data.preferences.timezone,
+        notifications: data.notifications
+      })
+
+      // Send team invitations
+      for (const invitation of data.teamInvitations) {
+        try {
+          await teamManager.inviteTeamMember(
+            bakeshop.id,
+            user.id,
+            invitation.email,
+            invitation.role,
+            invitation.message
+          )
+
+          // Create notification for invitation
+          await notificationManager.createTeamInvitationNotification(
+            user.id,
+            user.name,
+            data.businessName,
+            invitation.role
+          )
+        } catch (inviteError) {
+          console.error('Error sending invitation:', inviteError)
+          // Continue with other invitations
+        }
+      }
+
+      // Log onboarding completion
+      await enhancedUserManager.logUserActivity(
+        user.id,
+        'onboarding_completed',
+        'Completed business setup and onboarding process',
+        { bakeshopId: bakeshop.id, businessName: data.businessName }
+      )
+
+      // Clear onboarding data
+      localStorage.removeItem('onboardingData')
+
+      // Redirect to dashboard
+      router.push('/dashboard')
+    } catch (err) {
+      console.error('Error completing onboarding:', err)
+      setError(err instanceof Error ? err.message : 'Failed to complete setup')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const progress = ((currentStep + 1) / STEPS.length) * 100
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Progress Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold">Welcome to BakeSync</h1>
+            <Badge variant="outline">Step {currentStep + 1} of {STEPS.length}</Badge>
+          </div>
+          <Progress value={progress} className="h-2" />
+          <div className="flex justify-between mt-2 text-sm text-gray-600">
+            {STEPS.map((step, index) => (
+              <div
+                key={step.id}
+                className={`flex items-center ${
+                  index <= currentStep ? 'text-blue-600' : 'text-gray-400'
+                }`}
+              >
+                <step.icon className="h-4 w-4 mr-1" />
+                {step.title}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <STEPS[currentStep].icon className="h-6 w-6 mr-2" />
+              {STEPS[currentStep].title}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert className="mb-6">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {currentStep === 0 && <BusinessDetailsStep data={data} updateData={updateData} />}
+            {currentStep === 1 && <LocationContactStep data={data} updateData={updateData} />}
+            {currentStep === 2 && <OperatingHoursStep data={data} updateData={updateData} />}
+            {currentStep === 3 && <PreferencesStep data={data} updateData={updateData} />}
+            {currentStep === 4 && <NotificationsStep data={data} updateData={updateData} />}
+            {currentStep === 5 && <TeamSetupStep data={data} updateData={updateData} />}
+            {currentStep === 6 && <CompleteStep data={data} />}
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-8">
+              <Button
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStep === 0}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
+
+              {currentStep < STEPS.length - 1 ? (
+                <Button onClick={nextStep}>
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={handleComplete} disabled={isLoading}>
+                  {isLoading ? 'Completing Setup...' : 'Complete Setup'}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// Step Components
+function BusinessDetailsStep({ data, updateData }: { data: OnboardingData; updateData: (updates: Partial<OnboardingData>) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="businessName">Business Name *</Label>
+          <Input
+            id="businessName"
+            value={data.businessName}
+            onChange={(e) => updateData({ businessName: e.target.value })}
+            placeholder="Your Bakery Name"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="businessType">Business Type *</Label>
+          <Select
+            value={data.businessType}
+            onValueChange={(value) => updateData({ businessType: value as any })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bakery">Bakery</SelectItem>
+              <SelectItem value="cafe">Cafe</SelectItem>
+              <SelectItem value="restaurant">Restaurant</SelectItem>
+              <SelectItem value="food_truck">Food Truck</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="businessDescription">Business Description</Label>
+        <Textarea
+          id="businessDescription"
+          value={data.businessDescription}
+          onChange={(e) => updateData({ businessDescription: e.target.value })}
+          placeholder="Tell us about your business..."
+          rows={3}
+        />
+      </div>
+    </div>
+  )
+}
+
+function LocationContactStep({ data, updateData }: { data: OnboardingData; updateData: (updates: Partial<OnboardingData>) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Address</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="street">Street Address *</Label>
+            <Input
+              id="street"
+              value={data.address.street}
+              onChange={(e) => updateData({ address: { ...data.address, street: e.target.value } })}
+              placeholder="123 Main St"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="city">City *</Label>
+            <Input
+              id="city"
+              value={data.address.city}
+              onChange={(e) => updateData({ address: { ...data.address, city: e.target.value } })}
+              placeholder="New York"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="state">State *</Label>
+            <Input
+              id="state"
+              value={data.address.state}
+              onChange={(e) => updateData({ address: { ...data.address, state: e.target.value } })}
+              placeholder="NY"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="zipCode">ZIP Code *</Label>
+            <Input
+              id="zipCode"
+              value={data.address.zipCode}
+              onChange={(e) => updateData({ address: { ...data.address, zipCode: e.target.value } })}
+              placeholder="10001"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Contact Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number *</Label>
+            <Input
+              id="phone"
+              value={data.contact.phone}
+              onChange={(e) => updateData({ contact: { ...data.contact, phone: e.target.value } })}
+              placeholder="(555) 123-4567"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="website">Website</Label>
+            <Input
+              id="website"
+              value={data.contact.website}
+              onChange={(e) => updateData({ contact: { ...data.contact, website: e.target.value } })}
+              placeholder="https://yourbakery.com"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OperatingHoursStep({ data, updateData }: { data: OnboardingData; updateData: (updates: Partial<OnboardingData>) => void }) {
+  const days = [
+    { key: 'monday', label: 'Monday' },
+    { key: 'tuesday', label: 'Tuesday' },
+    { key: 'wednesday', label: 'Wednesday' },
+    { key: 'thursday', label: 'Thursday' },
+    { key: 'friday', label: 'Friday' },
+    { key: 'saturday', label: 'Saturday' },
+    { key: 'sunday', label: 'Sunday' }
+  ] as const
+
+  return (
+    <div className="space-y-4">
+      <p className="text-gray-600">Set your business operating hours for each day of the week.</p>
+      {days.map((day) => (
+        <div key={day.key} className="flex items-center space-x-4 p-4 border rounded-lg">
+          <div className="w-20">
+            <Label className="font-medium">{day.label}</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id={`${day.key}-closed`}
+              checked={data.operatingHours[day.key].closed}
+              onCheckedChange={(checked) => 
+                updateData({
+                  operatingHours: {
+                    ...data.operatingHours,
+                    [day.key]: {
+                      ...data.operatingHours[day.key],
+                      closed: checked as boolean
+                    }
+                  }
+                })
+              }
+            />
+            <Label htmlFor={`${day.key}-closed`}>Closed</Label>
+          </div>
+          {!data.operatingHours[day.key].closed && (
+            <div className="flex items-center space-x-2">
+              <Input
+                type="time"
+                value={data.operatingHours[day.key].open}
+                onChange={(e) => 
+                  updateData({
+                    operatingHours: {
+                      ...data.operatingHours,
+                      [day.key]: {
+                        ...data.operatingHours[day.key],
+                        open: e.target.value
+                      }
+                    }
+                  })
+                }
+                className="w-32"
+              />
+              <span>to</span>
+              <Input
+                type="time"
+                value={data.operatingHours[day.key].close}
+                onChange={(e) => 
+                  updateData({
+                    operatingHours: {
+                      ...data.operatingHours,
+                      [day.key]: {
+                        ...data.operatingHours[day.key],
+                        close: e.target.value
+                      }
+                    }
+                  })
+                }
+                className="w-32"
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PreferencesStep({ data, updateData }: { data: OnboardingData; updateData: (updates: Partial<OnboardingData>) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="timezone">Timezone</Label>
+          <Select
+            value={data.preferences.timezone}
+            onValueChange={(value) => updateData({ preferences: { ...data.preferences, timezone: value } })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="America/New_York">Eastern Time</SelectItem>
+              <SelectItem value="America/Chicago">Central Time</SelectItem>
+              <SelectItem value="America/Denver">Mountain Time</SelectItem>
+              <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
+              <SelectItem value="UTC">UTC</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="currency">Currency</Label>
+          <Select
+            value={data.preferences.currency}
+            onValueChange={(value) => updateData({ preferences: { ...data.preferences, currency: value } })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="USD">USD ($)</SelectItem>
+              <SelectItem value="EUR">EUR (€)</SelectItem>
+              <SelectItem value="GBP">GBP (£)</SelectItem>
+              <SelectItem value="CAD">CAD (C$)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="language">Language</Label>
+          <Select
+            value={data.preferences.language}
+            onValueChange={(value) => updateData({ preferences: { ...data.preferences, language: value } })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="es">Spanish</SelectItem>
+              <SelectItem value="fr">French</SelectItem>
+              <SelectItem value="de">German</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="theme">Theme</Label>
+          <Select
+            value={data.preferences.theme}
+            onValueChange={(value) => updateData({ preferences: { ...data.preferences, theme: value as any } })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="light">Light</SelectItem>
+              <SelectItem value="dark">Dark</SelectItem>
+              <SelectItem value="system">System</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NotificationsStep({ data, updateData }: { data: OnboardingData; updateData: (updates: Partial<OnboardingData>) => void }) {
+  const notificationOptions = [
+    { key: 'email', label: 'Email Notifications', description: 'Receive notifications via email' },
+    { key: 'push', label: 'Push Notifications', description: 'Receive push notifications in your browser' },
+    { key: 'lowStock', label: 'Low Stock Alerts', description: 'Get notified when inventory is running low' },
+    { key: 'productionReminders', label: 'Production Reminders', description: 'Reminders for production schedules' },
+    { key: 'teamUpdates', label: 'Team Updates', description: 'Updates about team member activities' },
+    { key: 'systemAlerts', label: 'System Alerts', description: 'Important system notifications' }
+  ] as const
+
+  return (
+    <div className="space-y-4">
+      <p className="text-gray-600">Choose which notifications you'd like to receive.</p>
+      <div className="space-y-4">
+        {notificationOptions.map((option) => (
+          <div key={option.key} className="flex items-start space-x-3 p-4 border rounded-lg">
+            <Checkbox
+              id={option.key}
+              checked={data.notifications[option.key]}
+              onCheckedChange={(checked) => 
+                updateData({
+                  notifications: {
+                    ...data.notifications,
+                    [option.key]: checked as boolean
+                  }
+                })
+              }
+            />
+            <div className="space-y-1">
+              <Label htmlFor={option.key} className="font-medium">
+                {option.label}
+              </Label>
+              <p className="text-sm text-gray-600">{option.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TeamSetupStep({ data, updateData }: { data: OnboardingData; updateData: (updates: Partial<OnboardingData>) => void }) {
+  const addTeamMember = () => {
+    updateData({
+      teamInvitations: [
+        ...data.teamInvitations,
+        { email: '', role: 'baker', message: '' }
+      ]
+    })
+  }
+
+  const updateTeamMember = (index: number, updates: Partial<{ email: string; role: 'baker' | 'cashier'; message: string }>) => {
+    const updated = [...data.teamInvitations]
+    updated[index] = { ...updated[index], ...updates }
+    updateData({ teamInvitations: updated })
+  }
+
+  const removeTeamMember = (index: number) => {
+    const updated = data.teamInvitations.filter((_, i) => i !== index)
+    updateData({ teamInvitations: updated })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Invite Team Members</h3>
+        <p className="text-gray-600 mb-4">
+          Invite your team members to join your bakery management system. You can always add more later.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {data.teamInvitations.map((member, index) => (
+          <div key={index} className="p-4 border rounded-lg space-y-4">
+            <div className="flex justify-between items-start">
+              <h4 className="font-medium">Team Member {index + 1}</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => removeTeamMember(index)}
+              >
+                Remove
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={`email-${index}`}>Email Address *</Label>
+                <Input
+                  id={`email-${index}`}
+                  type="email"
+                  value={member.email}
+                  onChange={(e) => updateTeamMember(index, { email: e.target.value })}
+                  placeholder="teammate@example.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`role-${index}`}>Role *</Label>
+                <Select
+                  value={member.role}
+                  onValueChange={(value) => updateTeamMember(index, { role: value as 'baker' | 'cashier' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baker">Baker</SelectItem>
+                    <SelectItem value="cashier">Cashier</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`message-${index}`}>Personal Message (Optional)</Label>
+              <Textarea
+                id={`message-${index}`}
+                value={member.message}
+                onChange={(e) => updateTeamMember(index, { message: e.target.value })}
+                placeholder="Welcome to our team! Looking forward to working with you."
+                rows={2}
+              />
+            </div>
+          </div>
+        ))}
+
+        <Button variant="outline" onClick={addTeamMember} className="w-full">
+          <Users className="h-4 w-4 mr-2" />
+          Add Team Member
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function CompleteStep({ data }: { data: OnboardingData }) {
+  return (
+    <div className="text-center space-y-6">
+      <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+        <CheckCircle className="h-8 w-8 text-green-600" />
+      </div>
+      <div>
+        <h3 className="text-2xl font-bold text-gray-900">Setup Complete!</h3>
+        <p className="text-gray-600 mt-2">
+          Your bakery management system is ready to go. Let's start managing your business!
+        </p>
+      </div>
+      <div className="bg-gray-50 p-6 rounded-lg text-left space-y-2">
+        <h4 className="font-semibold">What's Next:</h4>
+        <ul className="text-sm text-gray-600 space-y-1">
+          <li>• Set up your inventory items</li>
+          <li>• Add your recipes and ingredients</li>
+          <li>• Configure your suppliers</li>
+          <li>• Start logging production</li>
+          <li>• Set up your point of sale</li>
+        </ul>
+      </div>
+    </div>
+  )
+}
