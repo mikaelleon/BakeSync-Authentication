@@ -1,6 +1,5 @@
 // BakeSync API Configuration
-// Update this URL after deploying to Google Cloud Run
-const API_BASE = "http://localhost:8080";
+const API_BASE = "https://bakesync-authentication.onrender.com";
 
 // Role display name mapping (internal -> display)
 const ROLE_DISPLAY = {
