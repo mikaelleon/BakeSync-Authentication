@@ -22,11 +22,19 @@
                 </div>
                 <div>
                     <h1 class="card-title">BakeSync</h1>
-                    <p class="card-description">Sign in to your bakery management system</p>
+                    <p class="card-description">Sign in to your BakeSync account</p>
                 </div>
             </div>
 
             <div class="card-content">
+                <div id="success-alert" class="alert alert-success" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <span id="success-message"></span>
+                </div>
+
                 <form id="login-form" onsubmit="handleLogin(event)">
                     <div id="error-alert" class="alert alert-destructive" style="display: none;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -83,5 +91,9 @@
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
     <script src="../js/auth.js"></script>
+    <script>
+        // Check for registration success message
+        checkRegistrationSuccess();
+    </script>
 </body>
 </html>

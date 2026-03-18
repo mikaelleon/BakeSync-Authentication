@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify OTP - BakeSync</title>
+    <title>Verify Your Email - BakeSync</title>
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -11,17 +11,17 @@
         <div class="card">
             <div class="card-header">
                 <div class="card-icon">
-                    <!-- Shield Check Icon -->
+                    <!-- Mail Check Icon -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-                        <path d="m9 12 2 2 4-4"/>
+                        <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/>
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                        <path d="m16 19 2 2 4-4"/>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="card-title">Two-Factor Authentication</h1>
+                    <h1 class="card-title">Verify Your Email</h1>
                     <p class="card-description">
-                        A 6-digit OTP has been generated for <strong id="username-display"></strong>.<br>
-                        Check the server console for your code.
+                        Enter the 6-digit code sent to your email address to complete your registration.
                     </p>
                 </div>
             </div>
@@ -38,8 +38,12 @@
                     </div>
 
                     <div class="space-y-4">
+                        <p class="text-sm text-muted" style="text-align: center;">
+                            Registering as: <strong id="username-display"></strong>
+                        </p>
+
                         <div class="form-group">
-                            <label for="otp">Enter OTP Code</label>
+                            <label for="otp">Verification Code</label>
                             <input
                                 type="text"
                                 id="otp"
@@ -54,7 +58,7 @@
                         </div>
 
                         <button type="submit" id="submit-btn" class="btn btn-primary btn-full">
-                            Verify OTP
+                            Verify Code
                         </button>
 
                         <div class="text-center">
@@ -65,7 +69,7 @@
 
                 <div class="demo-box">
                     <p class="demo-box-content" style="text-align: center;">
-                        <strong style="text-transform: none; font-size: 0.875rem;">Note:</strong> In this prototype, the OTP appears in the server console only. In production, it would be sent via SMS or email.
+                        Check your email inbox for the verification code. The code expires in 10 minutes.
                     </p>
                 </div>
             </div>

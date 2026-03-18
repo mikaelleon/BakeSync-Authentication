@@ -8,7 +8,7 @@ const router = express.Router();
 
 /**
  * POST /api/auth/login
- * Step 1 of MFA: Verify credentials and generate OTP
+ * Verify credentials and issue JWT directly (no OTP step)
  */
 router.post('/login', async (req, res) => {
     try {
@@ -35,20 +35,16 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const otpCode = generateOTP();
-        const otpExpiry = getOTPExpiry();
-
-        await pool.execute(
-            'UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?',
-            [otpCode, otpExpiry, user.id]
+        // Sign JWT immediately - no OTP step
+        const token = jwt.sign(
+            { id: user.id, username: user.username, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '2h' }
         );
 
-        // SIMULATE OTP delivery - only appears in server console
-        console.log(`[OTP] User '${user.username}' OTP: ${otpCode} (expires in 5 min)`);
-
         res.status(200).json({
-            message: 'OTP sent',
-            userId: user.id,
+            token,
+            role: user.role,
             username: user.username
         });
     } catch (error) {
