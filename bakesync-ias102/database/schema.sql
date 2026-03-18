@@ -1,8 +1,8 @@
 -- BakeSync IAS102 Database Schema
 -- MySQL 8.0+ compatible
 
-CREATE DATABASE IF NOT EXISTS bakesync_ias102;
-USE bakesync_ias102;
+CREATE DATABASE IF NOT EXISTS defaultdb;
+USE defaultdb;
 
 -- Users table with authentication fields
 CREATE TABLE IF NOT EXISTS users (
