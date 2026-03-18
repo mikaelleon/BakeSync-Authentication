@@ -140,7 +140,7 @@ export class TeamManager {
             joinedAt: new Date(membership.joined_at),
             lastActiveAt: membership.profile_last_login_at ? new Date(membership.profile_last_login_at) : undefined,
             permissions: this.getRolePermissions(membership.user_role),
-            status: membership.is_active ? 'active' : 'inactive'
+            status: (membership.is_active ? 'active' : 'inactive') as 'pending' | 'active' | 'inactive' | 'suspended'
           }
           console.log('Mapped member:', member)
           return member
