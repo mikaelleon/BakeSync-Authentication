@@ -37,14 +37,9 @@ CREATE TABLE IF NOT EXISTS files (
 -- Then update the values below with the new hashes.
 
 INSERT INTO users (username, password_hash, role) VALUES
-('manager_maria', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin'),
-('baker_juan', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'staff'),
-('cashier_ana', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'user');
-
--- NOTE: All demo users above use the same hash for simplicity.
--- This hash corresponds to the password "password" for testing.
--- After setup, run the hash script and update with unique hashes for:
---   admin123, staff123, user123
+('manager_maria', '$2a$10$7070hG8mxo8QvHqzg8WVNeDeCu5WkipBE4h57QjCXQK//9ES1Fv3i', 'admin'),
+('baker_juan', '$2a$10$dY289C4kETAYOKpxtLwCg.M0cCbVF0ADbZXyypcHy9KjzvLJZ3h8q', 'staff'),
+('cashier_ana', '$2a$10$Pk5kIA6boJNqzO8kA2MuPeotNaIwtlLMcfnBS8hH5jWvpCP7WSM3u', 'user');
 
 -- Seed Files for DAC demonstration
 INSERT INTO files (filename, description, file_type, owner_id, is_public) VALUES
