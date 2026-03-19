@@ -52,6 +52,9 @@ async function loadAdminDashboard() {
             `;
             activityList.appendChild(li);
         });
+
+        // Load a preview of accessible documents (file manager).
+        await loadFilesPreview(5);
     } catch (error) {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
@@ -88,6 +91,9 @@ async function loadStaffDashboard() {
             `;
             scheduleBody.appendChild(tr);
         });
+
+        // Load a preview of accessible documents (file manager).
+        await loadFilesPreview(5);
     } catch (error) {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
@@ -122,10 +128,89 @@ async function loadUserDashboard() {
             `;
             notificationList.appendChild(li);
         });
+
+        // Load a preview of accessible documents (file manager).
+        await loadFilesPreview(5);
     } catch (error) {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
             logout();
         }
     }
+}
+
+/**
+ * Load a small preview of documents (files) visible to the current user.
+ * This preserves DAC/permissions because the backend `/api/files` filters access.
+ */
+async function loadFilesPreview(limit = 5) {
+    const listEl = document.getElementById('recent-files-list');
+    const countEl = document.getElementById('recent-files-count');
+
+    if (!listEl && !countEl) return;
+
+    const loadingLi = `
+        <li class="loading">
+            <div class="spinner"></div>
+        </li>
+    `;
+
+    if (listEl) listEl.innerHTML = loadingLi;
+    if (countEl) countEl.textContent = 'Loading...';
+
+    try {
+        const files = await apiGet('/api/files');
+        const safeFiles = Array.isArray(files) ? files : [];
+
+        if (countEl) countEl.textContent = `${safeFiles.length} file(s) accessible`;
+
+        if (!listEl) return;
+        if (safeFiles.length === 0) {
+            listEl.innerHTML = `
+                <li style="text-align:center; padding: 1.5rem; color: var(--muted-foreground);">
+                    No files available yet.
+                </li>
+            `;
+            return;
+        }
+
+        const shown = safeFiles.slice(0, limit);
+        listEl.innerHTML = '';
+
+        shown.forEach(file => {
+            const filename = escapeHtml(file.filename || '');
+            const type = escapeHtml(file.file_type || '');
+            const ownerLabel = file.isOwner ? 'You' : `User #${file.owner_id ?? '?'}`;
+            const visibility = file.is_public ? 'Public' : 'Private';
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span class="action">
+                    ${filename}
+                    <span class="badge" style="margin-left: 0.5rem;">${type}</span>
+                    <span style="display:block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--muted-foreground);">
+                        Owner: ${escapeHtml(ownerLabel)}
+                    </span>
+                </span>
+                <span class="time">${visibility}</span>
+            `;
+            listEl.appendChild(li);
+        });
+    } catch (error) {
+        console.error('Files preview load error:', error);
+        if (listEl) {
+            listEl.innerHTML = `
+                <li style="text-align:center; padding: 1.5rem; color: var(--destructive);">
+                    Failed to load file preview.
+                </li>
+            `;
+        }
+        if (countEl) countEl.textContent = 'Failed to load';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }

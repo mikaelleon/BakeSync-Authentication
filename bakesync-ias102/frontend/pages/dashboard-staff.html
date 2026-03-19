@@ -62,12 +62,33 @@
             </table>
         </div>
 
-        <div class="file-actions">
-            <a href="files.html" class="btn btn-primary">My Files</a>
-            <a href="recipes.html" class="btn btn-outline">Recipes</a>
-            <a href="production.html" class="btn btn-outline">Production</a>
-            <a href="inventory.html" class="btn btn-outline">Inventory</a>
-            <a href="profile.html" class="btn btn-outline">Profile</a>
+        <div class="content-card">
+            <h3>Document Manager (Preview)</h3>
+            <p class="text-sm text-muted" style="margin-bottom: 1rem;">
+                Showing the files you can access (DAC enforced by backend).
+            </p>
+            <div style="margin-bottom: 0.75rem;">
+                <strong id="recent-files-count">-</strong>
+            </div>
+            <ul id="recent-files-list" class="activity-list">
+                <li class="loading">
+                    <div class="spinner"></div>
+                </li>
+            </ul>
+            <div style="margin-top: 1rem;">
+                <a href="files.html" class="btn btn-primary">Open File Manager</a>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h3>Quick Actions</h3>
+            <div class="file-actions">
+                <a href="files.html" class="btn btn-primary">My Files</a>
+                <a href="recipes.html" class="btn btn-outline">Recipes</a>
+                <a href="production.html" class="btn btn-outline">Production</a>
+                <a href="inventory.html" class="btn btn-outline">Inventory</a>
+                <a href="profile.html" class="btn btn-outline">Profile</a>
+            </div>
         </div>
     </div>
 
