@@ -31,20 +31,37 @@ async function loadAdminDashboard() {
     if (!requireAuth()) return;
 
     initNavbar();
+    // Frontend guard (backend also enforces RBAC)
+    const me = getCurrentUser();
+    if (me.role !== 'admin') {
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Manager dashboard is restricted to Admin (Manager) role.')}`;
+        return;
+    }
 
     try {
         const data = await apiGet('/api/dashboard/admin');
 
         // Update stats
-        document.getElementById('stat-users').textContent = data.stats.totalUsers;
-        document.getElementById('stat-files').textContent = data.stats.totalFiles;
-        document.getElementById('stat-alerts').textContent = data.stats.systemAlerts;
+        document.getElementById('stat-users').textContent = data.stats?.totalUsers ?? '-';
+        document.getElementById('stat-files').textContent = data.stats?.totalFiles ?? '-';
+        document.getElementById('stat-alerts').textContent = data.stats?.systemAlerts ?? '-';
+
+        // Quick stats (cards like original dashboard)
+        const qs = data.quickStats || {};
+        const salesEl = document.getElementById('stat-today-sales');
+        const prodEl = document.getElementById('stat-production-today');
+        const lowEl = document.getElementById('stat-low-stock');
+        const poEl = document.getElementById('stat-pending-orders');
+        if (salesEl) salesEl.textContent = `₱${Number(qs.todaySales || 0).toFixed(2)}`;
+        if (prodEl) prodEl.textContent = String(qs.productionToday || 0);
+        if (lowEl) lowEl.textContent = String(qs.lowStockItems || 0);
+        if (poEl) poEl.textContent = String(qs.pendingOrders || 0);
 
         // Populate activity list
         const activityList = document.getElementById('activity-list');
         activityList.innerHTML = '';
 
-        data.recentActivity.forEach(item => {
+        (data.recentActivity || []).forEach(item => {
             const li = document.createElement('li');
             li.innerHTML = `
                 <span class="action">${item.action} by <span class="user">${item.user}</span></span>
@@ -60,6 +77,9 @@ async function loadAdminDashboard() {
         if (error.message === 'Unauthorized') {
             logout();
         }
+        if (String(error.message || '').toLowerCase().includes('forbidden')) {
+            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
+        }
     }
 }
 
@@ -70,19 +90,24 @@ async function loadStaffDashboard() {
     if (!requireAuth()) return;
 
     initNavbar();
+    const me = getCurrentUser();
+    if (me.role !== 'staff') {
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Baker dashboard is restricted to Staff (Baker) role.')}`;
+        return;
+    }
 
     try {
         const data = await apiGet('/api/dashboard/staff');
 
         // Update stats
-        document.getElementById('stat-recipes').textContent = data.stats.recipesManaged;
-        document.getElementById('stat-production').textContent = data.stats.productionToday;
+        document.getElementById('stat-recipes').textContent = data.stats?.recipesManaged ?? '-';
+        document.getElementById('stat-production').textContent = data.stats?.productionToday ?? '-';
 
         // Populate schedule table
         const scheduleBody = document.getElementById('schedule-body');
         scheduleBody.innerHTML = '';
 
-        data.schedule.forEach(item => {
+        (data.schedule || []).forEach(item => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${item.time}</td>
@@ -99,6 +124,9 @@ async function loadStaffDashboard() {
         if (error.message === 'Unauthorized') {
             logout();
         }
+        if (String(error.message || '').toLowerCase().includes('forbidden')) {
+            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
+        }
     }
 }
 
@@ -109,18 +137,25 @@ async function loadUserDashboard() {
     if (!requireAuth()) return;
 
     initNavbar();
+    const me = getCurrentUser();
+    if (me.role !== 'user') {
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Cashier dashboard is restricted to User (Cashier) role.')}`;
+        return;
+    }
 
     try {
         const data = await apiGet('/api/dashboard/user');
 
         // Update stats
-        document.getElementById('stat-orders').textContent = data.stats.ordersToday;
+        document.getElementById('stat-orders').textContent = data.stats?.ordersToday ?? '-';
+        const salesEl = document.getElementById('stat-today-sales');
+        if (salesEl) salesEl.textContent = `₱${Number(data.stats?.todaySales || 0).toFixed(2)}`;
 
         // Populate notifications
         const notificationList = document.getElementById('notification-list');
         notificationList.innerHTML = '';
 
-        data.notifications.forEach(item => {
+        (data.notifications || []).forEach(item => {
             const li = document.createElement('li');
             li.innerHTML = `
                 <div class="message">${item.message}</div>
@@ -135,6 +170,9 @@ async function loadUserDashboard() {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
             logout();
+        }
+        if (String(error.message || '').toLowerCase().includes('forbidden')) {
+            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
         }
     }
 }

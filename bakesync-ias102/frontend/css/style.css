@@ -823,3 +823,236 @@ input[type="checkbox"] {
 .gap-4 {
     gap: 1rem;
 }
+
+/* =======================================================
+   App Shell (Sidebar + Main) — matches original layout
+   ======================================================= */
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+    background: var(--background);
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+    height: 3.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+}
+
+.topbar-title {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+}
+
+.topbar-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-logo {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.sidebar-logo-mark {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-lg);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.sidebar-logo-title {
+    font-weight: 700;
+    color: var(--foreground);
+    line-height: 1.1;
+}
+
+.sidebar-logo-subtitle {
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    margin-top: 0.15rem;
+}
+
+.sidebar-content {
+    padding: 0.75rem 0.75rem 0.5rem 0.75rem;
+    overflow: auto;
+    flex: 1;
+}
+
+.sidebar-group {
+    margin-bottom: 0.75rem;
+}
+
+.sidebar-group-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    text-transform: none;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--foreground);
+    font-size: 0.875rem;
+    border: 1px solid transparent;
+}
+
+.sidebar-link:hover {
+    background: var(--accent);
+}
+
+.sidebar-link.active {
+    background: rgba(161, 104, 50, 0.1);
+    border-color: rgba(161, 104, 50, 0.25);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.sidebar-footer {
+    border-top: 1px solid var(--border);
+    padding: 0.9rem;
+}
+
+.sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.sidebar-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    background: rgba(161, 104, 50, 0.12);
+    color: var(--primary);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-user-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.sidebar-user-role {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    margin-top: 0.1rem;
+}
+
+.sidebar-role-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+}
+
+.sidebar-signout {
+    width: 100%;
+    justify-content: flex-start;
+    background: transparent;
+}
+
+/* Tabs (dashboard strip) */
+.dash-tabs {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.25rem;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.25rem;
+    margin-bottom: 1rem;
+}
+
+.dash-tab {
+    border: none;
+    background: transparent;
+    height: 2rem;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+}
+
+.dash-tab.active {
+    background: var(--background);
+    color: var(--foreground);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.dash-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.35rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+}
+
+/* Responsive sidebar */
+@media (max-width: 960px) {
+    .sidebar {
+        display: none;
+    }
+}

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin', 'staff', 'user') NOT NULL,
+    -- OTP is reused for both email verification and account deletion confirmation
     otp_code VARCHAR(6) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
     is_verified TINYINT(1) DEFAULT 0,
@@ -58,3 +59,8 @@ INSERT INTO files (filename, description, file_type, owner_id, is_public) VALUES
 -- ALTER TABLE users ADD COLUMN email VARCHAR(100) UNIQUE AFTER username;
 -- ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0 AFTER otp_expires_at;
 -- UPDATE users SET email = CONCAT(username, '@bakesync.demo'), is_verified = 1 WHERE email IS NULL;
+
+-- Cleanup (only if you previously added separate deletion OTP columns by mistake):
+-- ALTER TABLE users
+--   DROP COLUMN IF EXISTS delete_otp_code,
+--   DROP COLUMN IF EXISTS delete_otp_expires_at;
