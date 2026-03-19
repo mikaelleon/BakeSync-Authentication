@@ -24,6 +24,12 @@ function initNavbar() {
     }
 }
 
+function safeTextById(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
+}
+
 /**
  * Load admin dashboard data
  */
@@ -41,37 +47,35 @@ async function loadAdminDashboard() {
     try {
         const data = await apiGet('/api/dashboard/admin');
 
-        // Update stats
-        document.getElementById('stat-users').textContent = data.stats?.totalUsers ?? '-';
-        document.getElementById('stat-files').textContent = data.stats?.totalFiles ?? '-';
-        document.getElementById('stat-alerts').textContent = data.stats?.systemAlerts ?? '-';
-
-        // Quick stats (cards like original dashboard)
-        const qs = data.quickStats || {};
-        const salesEl = document.getElementById('stat-today-sales');
-        const prodEl = document.getElementById('stat-production-today');
-        const lowEl = document.getElementById('stat-low-stock');
-        const poEl = document.getElementById('stat-pending-orders');
-        if (salesEl) salesEl.textContent = `₱${Number(qs.todaySales || 0).toFixed(2)}`;
-        if (prodEl) prodEl.textContent = String(qs.productionToday || 0);
-        if (lowEl) lowEl.textContent = String(qs.lowStockItems || 0);
-        if (poEl) poEl.textContent = String(qs.pendingOrders || 0);
+        // Update KPIs
+        const adminStats = data.stats || {};
+        const adminTrends = data.trends || {};
+        safeTextById('kpi-total-files', String(adminStats.totalFiles ?? '-'));
+        safeTextById('kpi-total-users', String(adminStats.totalUsers ?? '-'));
+        safeTextById('kpi-public-recipes', String(adminStats.publicRecipes ?? '-'));
+        safeTextById('kpi-system-alerts', String(adminStats.systemAlerts ?? '-'));
+        safeTextById('kpi-total-files-trend', `↑ ${adminTrends.filesAddedThisWeek ?? 0} this week`);
+        safeTextById('kpi-total-users-trend', `↑ ${adminTrends.newRegistrationsThisWeek ?? 0} new registrations`);
+        safeTextById('kpi-public-recipes-trend', `↑ ${adminTrends.publicRecipesSharedThisWeek ?? 0} shared this week`);
+        safeTextById('kpi-system-alerts-trend', `↓ ${adminTrends.systemAlertsThisWeek ?? 0} this week`);
 
         // Populate activity list
         const activityList = document.getElementById('activity-list');
+        if (!activityList) return;
         activityList.innerHTML = '';
 
         (data.recentActivity || []).forEach(item => {
             const li = document.createElement('li');
             li.innerHTML = `
-                <span class="action">${item.action} by <span class="user">${item.user}</span></span>
-                <span class="time">${item.time}</span>
+                <span class="action">${item.text || ''}</span>
+                <span class="time">${item.time ? timeAgo(item.time) : ''}</span>
             `;
             activityList.appendChild(li);
         });
 
-        // Load a preview of accessible documents (file manager).
-        await loadFilesPreview(5);
+        // Document Manager widget (inline preview)
+        const docmgrRoot = document.getElementById('dashboard-docmgr');
+        await initDashboardDocumentManagerPreview(docmgrRoot, 'admin');
     } catch (error) {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
@@ -99,26 +103,32 @@ async function loadStaffDashboard() {
     try {
         const data = await apiGet('/api/dashboard/staff');
 
-        // Update stats
-        document.getElementById('stat-recipes').textContent = data.stats?.recipesManaged ?? '-';
-        document.getElementById('stat-production').textContent = data.stats?.productionToday ?? '-';
+        // Update KPIs
+        const staffStats = data.stats || {};
+        const staffTrends = data.trends || {};
+        safeTextById('kpi-my-recipes', String(staffStats.myRecipes ?? '-'));
+        safeTextById('kpi-shared-schedules', String(staffStats.sharedSchedules ?? '-'));
+        safeTextById('kpi-production-batches', String(staffStats.productionToday ?? '-'));
+        safeTextById('kpi-my-recipes-trend', `↑ ${staffTrends.myRecipesAddedThisMonth ?? 0} added this month`);
+        safeTextById('kpi-shared-schedules-trend', `↑ ${staffTrends.sharedSchedulesActiveThisWeek ?? 0} active this week`);
+        safeTextById('kpi-production-batches-trend', `↑ ${staffStats.productionToday ?? 0} scheduled today`);
 
         // Populate schedule table
         const scheduleBody = document.getElementById('schedule-body');
-        scheduleBody.innerHTML = '';
+        if (scheduleBody) scheduleBody.innerHTML = '';
 
         (data.schedule || []).forEach(item => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${item.time}</td>
-                <td>${item.task}</td>
-                <td class="status-${item.status}">${item.status.replace('_', ' ')}</td>
+                <td>${item.task || item.batchName || '-'}</td>
+                <td class="status-${item.status}">${String(item.status || 'pending').replace('_', ' ')}</td>
             `;
-            scheduleBody.appendChild(tr);
+            if (scheduleBody) scheduleBody.appendChild(tr);
         });
 
-        // Load a preview of accessible documents (file manager).
-        await loadFilesPreview(5);
+        const docmgrRoot = document.getElementById('dashboard-docmgr');
+        await initDashboardDocumentManagerPreview(docmgrRoot, 'staff');
     } catch (error) {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
@@ -146,13 +156,19 @@ async function loadUserDashboard() {
     try {
         const data = await apiGet('/api/dashboard/user');
 
-        // Update stats
-        document.getElementById('stat-orders').textContent = data.stats?.ordersToday ?? '-';
-        const salesEl = document.getElementById('stat-today-sales');
-        if (salesEl) salesEl.textContent = `₱${Number(data.stats?.todaySales || 0).toFixed(2)}`;
+        // Update KPIs
+        const s = data.stats || {};
+        const t = data.trends || {};
+        safeTextById('kpi-my-invoices', String(s.myInvoices ?? '-'));
+        safeTextById('kpi-my-reports', String(s.myReports ?? '-'));
+        safeTextById('kpi-shared-docs', String(s.sharedDocs ?? '-'));
+        safeTextById('kpi-my-invoices-trend', `↑ ${t.myInvoicesThisMonth ?? 0} this month`);
+        safeTextById('kpi-my-reports-trend', `↑ ${t.myReportsFiledThisWeek ?? 0} filed this week`);
+        safeTextById('kpi-shared-docs-trend', `↑ ${t.sharedDocsThisWeek ?? 0} accessible this week`);
 
         // Populate notifications
         const notificationList = document.getElementById('notification-list');
+        if (!notificationList) return;
         notificationList.innerHTML = '';
 
         (data.notifications || []).forEach(item => {
@@ -164,8 +180,8 @@ async function loadUserDashboard() {
             notificationList.appendChild(li);
         });
 
-        // Load a preview of accessible documents (file manager).
-        await loadFilesPreview(5);
+        const docmgrRoot = document.getElementById('dashboard-docmgr');
+        await initDashboardDocumentManagerPreview(docmgrRoot, 'user');
     } catch (error) {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
@@ -251,4 +267,318 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Relative time formatter (used by activity feed)
+ * - < 60s  => Just now
+ * - < 60m  => X minutes ago
+ * - < 24h  => X hours ago
+ * - >= 24h => Mar 19, 2026
+ */
+function timeAgo(dateString) {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffSeconds = Math.floor((now - date) / 1000);
+
+    if (diffSeconds < 60) return 'Just now';
+    if (diffSeconds < 3600) return Math.floor(diffSeconds / 60) + ' minutes ago';
+    if (diffSeconds < 86400) return Math.floor(diffSeconds / 3600) + ' hours ago';
+
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Good morning';
+    if (hour >= 12 && hour < 18) return 'Good afternoon';
+    return 'Good evening';
+}
+
+/**
+ * Toast notification (bottom-right)
+ * type: success | error
+ */
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (type === 'error' ? ' toast-error' : '');
+    toast.textContent = message;
+
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-visible'));
+
+    setTimeout(() => {
+        toast.classList.remove('toast-visible');
+        setTimeout(() => toast.remove(), 250);
+    }, 3000);
+}
+
+function getFileTypeLabel(type) {
+    switch (type) {
+        case 'recipe': return 'Recipes';
+        case 'report': return 'Reports';
+        case 'schedule': return 'Schedules';
+        case 'invoice': return 'Invoices';
+        default: return 'All';
+    }
+}
+
+function getFileTypeIconClass(fileType) {
+    switch (fileType) {
+        case 'recipe': return 'file-icon-recipe';
+        case 'report': return 'file-icon-report';
+        case 'schedule': return 'file-icon-schedule';
+        case 'invoice': return 'file-icon-invoice';
+        default: return '';
+    }
+}
+
+function getFileTypeEmoji(fileType) {
+    switch (fileType) {
+        case 'recipe': return '📘';
+        case 'report': return '📊';
+        case 'schedule': return '🗓️';
+        case 'invoice': return '🧾';
+        default: return '📁';
+    }
+}
+
+function renderFileCardHTML(file) {
+    const filename = escapeHtml(file.filename || '');
+    const fileType = file.file_type || '';
+    const ownerLabel = file.isOwner ? 'You' : (file.owner_id ? 'Shared' : 'Shared');
+    const date = file.created_at ? new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+    const visibilityBadge = file.is_public
+        ? `<span class="file-type-badge" style="border-color: rgba(22, 163, 74, 0.35); background: rgba(22, 163, 74, 0.06); color: var(--success);">Public</span>`
+        : `<span class="file-card-locked-badge">Private</span>`;
+
+    const privateNonOwner = !file.isOwner && !file.is_public;
+    const lockedOverlay = privateNonOwner
+        ? `<div class="file-card-locked-overlay">🔒 Access restricted</div>`
+        : '';
+
+    const lockBadgeText = !file.is_public && file.isOwner ? 'Your private file' : (!file.is_public ? 'Access restricted' : '');
+    const ownerMeta = file.is_public
+        ? `<span class="file-owner">${escapeHtml(ownerLabel)}</span>`
+        : `<span class="file-owner">${escapeHtml(file.isOwner ? 'Your private file' : 'Access restricted')}</span>`;
+
+    const typeBadge = `<span class="file-type-badge ${escapeHtml(fileType)}">${escapeHtml(fileType.charAt(0).toUpperCase() + fileType.slice(1))}</span>`;
+
+    return `
+        <div class="file-card ${privateNonOwner ? 'private-nonowner' : ''}">
+            ${lockedOverlay}
+            <div class="file-card-left">
+                <div class="file-card-icon ${getFileTypeIconClass(fileType)}" aria-hidden="true">
+                    ${getFileTypeEmoji(fileType)}
+                </div>
+                <div class="file-card-body">
+                    <div class="file-card-name">${filename}</div>
+                    <div class="file-card-meta">
+                        ${typeBadge}
+                        ${ownerMeta}
+                        ${date ? `<span class="file-date">${escapeHtml(date)}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="file-card-actions">
+                <button class="btn btn-ghost btn-small" type="button" onclick="viewFile(${file.id})">View</button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Document Manager preview widget (used inside dashboards)
+ * Expects the dashboard page to have:
+ * - #docmgr-list
+ * - #docmgr-upload-btn
+ * - #docmgr-upload-panel
+ * - upload form fields inside #docmgr-upload-form with ids:
+ *   docmgr-filename, docmgr-type, docmgr-description, docmgr-is-public
+ */
+async function initDashboardDocumentManagerPreview(rootEl, role) {
+    if (!rootEl) return;
+
+    const listEl = rootEl.querySelector('#docmgr-list');
+    const countEl = rootEl.querySelector('#docmgr-count');
+    const uploadBtn = rootEl.querySelector('#docmgr-upload-btn');
+    const uploadPanel = rootEl.querySelector('#docmgr-upload-panel');
+    const uploadForm = rootEl.querySelector('#docmgr-upload-form');
+
+    if (!listEl || !uploadBtn || !uploadPanel || !uploadForm) return;
+
+    const effectiveDefaultType = role === 'user' ? 'invoice' : 'recipe';
+
+    const tabs = [
+        { key: 'all', label: 'All', type: null },
+        { key: 'recipe', label: 'Recipes', type: 'recipe' },
+        { key: 'report', label: 'Reports', type: 'report' },
+        { key: 'schedule', label: 'Schedules', type: 'schedule' },
+        { key: 'invoice', label: 'Invoices', type: 'invoice' },
+    ];
+
+    let state = {
+        files: [],
+        selectedType: role === 'user' ? 'invoice' : (role === 'staff' ? 'recipe' : 'all'),
+        // In dashboards we want "Recipes" as default except Cashier -> Invoices
+    };
+
+    const normalizeSelectedType = () => {
+        if (state.selectedType === 'all') return null;
+        return state.selectedType;
+    };
+
+    function renderTabs() {
+        const tabsEl = rootEl.querySelector('#docmgr-tabs');
+        if (!tabsEl) return;
+
+        tabsEl.innerHTML = '';
+        tabs.forEach((t) => {
+            const key = t.key;
+            const active = (t.type === null && state.selectedType === 'all') || (t.type !== null && state.selectedType === t.type);
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'file-type-tab' + (active ? ' active' : '');
+            btn.textContent = t.label;
+            btn.addEventListener('click', () => {
+                state.selectedType = key;
+                render();
+            });
+            tabsEl.appendChild(btn);
+        });
+    }
+
+    function renderEmptyMessage(type) {
+        const empty = rootEl.querySelector('#docmgr-empty');
+        if (!empty) return;
+
+        const map = {
+            all: 'No documents yet. Add your first file.',
+            recipe: 'No recipes yet. Add your first recipe.',
+            report: 'No reports found.',
+            schedule: 'No schedules available.',
+            invoice: 'No invoices found.'
+        };
+
+        empty.style.display = 'block';
+        const msg = map[type] || map.all;
+        empty.innerHTML = `
+            <div class="docmgr-empty">
+                <div class="empty-icon" aria-hidden="true">📁</div>
+                <div style="font-weight:700; margin-bottom: 0.5rem;">${escapeHtml(msg)}</div>
+                <button class="btn btn-primary" type="button" onclick="window.location.href='files.html?type=${escapeHtml(type)}&action=upload'">
+                    Add ${escapeHtml(getFileTypeLabel(type).replace('s',''))}
+                </button>
+            </div>
+        `;
+    }
+
+    function renderList() {
+        const type = normalizeSelectedType();
+        const filtered = type ? state.files.filter(f => f.file_type === type) : state.files.slice();
+
+        const shown = filtered.slice(0, 5);
+
+        if (countEl) countEl.textContent = `${filtered.length} document(s)`;
+
+        if (!shown.length) {
+            listEl.innerHTML = '';
+            renderEmptyMessage(state.selectedType === 'all' ? 'all' : state.selectedType);
+            return;
+        }
+
+        const emptyEl = rootEl.querySelector('#docmgr-empty');
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        listEl.innerHTML = shown.map(renderFileCardHTML).join('');
+    }
+
+    function renderUploadPanel() {
+        // Default type selector: active tab first, otherwise role default.
+        const defaultType = state.selectedType && state.selectedType !== 'all'
+            ? state.selectedType
+            : effectiveDefaultType;
+        const typeSelect = rootEl.querySelector('#docmgr-type');
+        if (typeSelect && typeSelect.value !== defaultType) {
+            typeSelect.value = defaultType;
+        }
+    }
+
+    function collapseUploadPanel() {
+        uploadPanel.classList.add('collapsed');
+    }
+
+    function expandUploadPanel() {
+        uploadPanel.classList.remove('collapsed');
+        const filename = rootEl.querySelector('#docmgr-filename');
+        if (filename) filename.focus();
+        uploadPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    const cancelBtn = rootEl.querySelector('#docmgr-upload-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            collapseUploadPanel();
+        });
+    }
+
+    uploadBtn.addEventListener('click', () => {
+        const collapsed = uploadPanel.classList.contains('collapsed');
+        if (collapsed) expandUploadPanel();
+        else collapseUploadPanel();
+    });
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const filename = rootEl.querySelector('#docmgr-filename').value.trim();
+        const description = rootEl.querySelector('#docmgr-description').value.trim();
+        const fileType = rootEl.querySelector('#docmgr-type').value;
+        const isPublic = rootEl.querySelector('#docmgr-is-public').checked;
+
+        if (!filename || !fileType) {
+            showToast('Filename and file type are required.', 'error');
+            return;
+        }
+
+        try {
+            await apiPost('/api/files', {
+                filename,
+                description: description || '',
+                file_type: fileType,
+                is_public: isPublic
+            });
+            showToast('File added successfully.', 'success');
+
+            // Re-fetch accessible files once after upload, then filter locally.
+            state.files = await apiGet('/api/files');
+            collapseUploadPanel();
+            render();
+        } catch (err) {
+            console.error(err);
+            showToast(err.message || 'Upload failed', 'error');
+        }
+    });
+
+    function render() {
+        renderTabs();
+        renderList();
+        renderUploadPanel();
+    }
+
+    // Initial fetch
+    state.files = await apiGet('/api/files');
+    renderTabs();
+    renderUploadPanel();
+
+    // Initial list
+    renderList();
+
+    // Show upload panel collapsed by default
+    collapseUploadPanel();
 }

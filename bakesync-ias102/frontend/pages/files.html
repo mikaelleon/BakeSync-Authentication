@@ -7,10 +7,11 @@
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-    <div class="app-shell">
-        <aside id="app-sidebar"></aside>
-        <div class="app-main">
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <div class="main-content" id="main-content">
             <div class="app-topbar">
+                <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar">☰</button>
                 <div class="topbar-title">BakeSync · Document Manager</div>
                 <div class="topbar-actions">
                     <a class="btn btn-outline btn-sm" href="profile.html">Settings</a>
@@ -40,60 +41,72 @@
             <span id="success-message"></span>
         </div>
 
-        <!-- Upload Form -->
+        <!-- Upload Panel (collapsible) -->
         <div class="content-card">
-            <h3>Upload New File</h3>
-            <form id="upload-form" class="upload-form">
-                <div class="form-group">
-                    <label for="filename">Filename</label>
-                    <input type="text" id="filename" placeholder="e.g., cake_recipe.pdf" required>
+            <button class="btn btn-primary btn-full" type="button" id="files-upload-toggle">+ Add New Document</button>
+
+            <div class="docmgr-upload collapsed" id="files-upload-panel">
+                <div class="docmgr-upload-panel">
+                    <form id="upload-form">
+                        <div class="docmgr-upload-form-grid">
+                            <div class="form-group">
+                                <label for="files-filename">Filename</label>
+                                <input type="text" id="files-filename" placeholder="e.g., cake_recipe.pdf" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="files-file-type">File Type</label>
+                                <select id="files-file-type" required>
+                                    <option value="recipe">Recipe</option>
+                                    <option value="report">Report</option>
+                                    <option value="schedule">Schedule</option>
+                                    <option value="invoice">Invoice</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 0.75rem;">
+                            <label for="files-description">Description</label>
+                            <textarea id="files-description" rows="2" placeholder="Optional description"></textarea>
+                        </div>
+
+                        <div class="docmgr-upload-actions">
+                            <label class="checkbox-wrapper" style="display:flex; align-items:center; gap:0.5rem; margin-right:auto;">
+                                <input type="checkbox" id="files-is-public">
+                                <span>Make file public</span>
+                            </label>
+                            <button type="submit" class="btn btn-primary">Upload File</button>
+                            <a href="#" class="btn btn-outline" id="files-upload-cancel">Cancel</a>
+                        </div>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label for="file-type">File Type</label>
-                    <select id="file-type" required>
-                        <option value="">Select type...</option>
-                        <option value="recipe">Recipe</option>
-                        <option value="report">Report</option>
-                        <option value="schedule">Schedule</option>
-                        <option value="invoice">Invoice</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <input type="text" id="description" placeholder="Optional description">
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-wrapper">
-                        <input type="checkbox" id="is-public">
-                        <span>Make file public</span>
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-primary">Upload File</button>
-            </form>
+            </div>
         </div>
 
-        <!-- File Table -->
+        <!-- File Type Tabs + Search + Card List -->
         <div class="content-card">
-            <h3>Your Files</h3>
-            <div id="loading" class="loading" style="display: none;">
+            <div class="files-filter-bar" style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                <div class="file-type-tabs" id="files-type-tabs" role="tablist" aria-label="File type filters">
+                    <button type="button" class="file-type-tab" data-type="all">All</button>
+                    <button type="button" class="file-type-tab" data-type="recipe">Recipes</button>
+                    <button type="button" class="file-type-tab" data-type="report">Reports</button>
+                    <button type="button" class="file-type-tab" data-type="schedule">Schedules</button>
+                    <button type="button" class="file-type-tab" data-type="invoice">Invoices</button>
+                </div>
+
+                <div class="docmgr-search" style="margin:0;">
+                    <input type="search" id="files-search" placeholder="Search files..." style="min-width: 260px;">
+                </div>
+            </div>
+
+            <div id="files-empty" style="display:none; margin-top:1rem;"></div>
+
+            <div id="loading" class="loading" style="display:none; margin-top:1rem;">
                 <div class="spinner"></div>
             </div>
-            <table class="file-table">
-                <thead>
-                    <tr>
-                        <th>Filename</th>
-                        <th>Type</th>
-                        <th>Owner</th>
-                        <th>Visibility</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="files-body">
-                </tbody>
-            </table>
+
+            <div id="files-list" class="docmgr-list" style="margin-top:1rem;"></div>
         </div>
 
-                <button onclick="history.back()" class="btn btn-outline">Back</button>
             </div>
         </div>
     </div>
@@ -116,6 +129,8 @@
     <script src="../js/files.js"></script>
     <script src="../js/sidebar.js"></script>
     <script>
+        initSidebar();
+        setActiveNavItem();
         initFileManager();
     </script>
 </body>

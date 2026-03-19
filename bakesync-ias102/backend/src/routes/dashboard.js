@@ -44,53 +44,77 @@ function timeAgo(date) {
  */
 router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
     try {
-        const totalUsers = await safeScalar('SELECT COUNT(*) as count FROM users');
-        const totalFiles = await safeScalar('SELECT COUNT(*) as count FROM files');
-
-        // Optional ERP tables (if present in DB) — otherwise 0.
-        const todaySales = await safeScalar(
-            'SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE sale_date >= CURDATE() AND sale_date < DATE_ADD(CURDATE(), INTERVAL 1 DAY)'
-        );
-        const pendingOrders = await safeScalar(
-            "SELECT COUNT(*) as count FROM purchase_orders WHERE status IN ('pending','draft')"
-        );
-        const lowStockItems = await safeScalar(
-            'SELECT COUNT(*) as count FROM inventory_items WHERE quantity < minimum_stock'
-        );
-        const productionToday = await safeScalar(
-            'SELECT COALESCE(SUM(quantity_produced), 0) as total FROM production_logs WHERE production_date >= CURDATE() AND production_date < DATE_ADD(CURDATE(), INTERVAL 1 DAY)'
+        const totalUsers = await safeScalar(
+            'SELECT COUNT(*) AS totalUsers FROM users WHERE is_verified = 1'
         );
 
-        // Recent activity from files + users (works with the minimal schema)
-        const recentFileActivity = await safeRows(
-            `SELECT f.file_type, f.created_at, u.username
+        const totalFiles = await safeScalar('SELECT COUNT(*) AS totalFiles FROM files');
+
+        const publicRecipes = await safeScalar(
+            `SELECT COUNT(*) AS publicRecipes
+             FROM files
+             WHERE file_type = 'recipe' AND is_public = 1`
+        );
+
+        const filesAddedThisWeek = await safeScalar(
+            `SELECT COUNT(*) AS filesAddedThisWeek
+             FROM files
+             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
+        );
+
+        const newRegistrationsThisWeek = await safeScalar(
+            `SELECT COUNT(*) AS newRegistrationsThisWeek
+             FROM users
+             WHERE is_verified = 1
+               AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
+        );
+
+        const publicRecipesSharedThisWeek = await safeScalar(
+            `SELECT COUNT(*) AS publicRecipesSharedThisWeek
+             FROM files
+             WHERE file_type = 'recipe'
+               AND is_public = 1
+               AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
+        );
+
+        const systemAlerts = await safeScalar(
+            `SELECT COUNT(*) AS systemAlerts
+             FROM inventory_items
+             WHERE quantity < minimum_stock`,
+            [],
+            0
+        );
+
+        const recentFiles = await safeRows(
+            `SELECT f.filename, f.file_type, f.created_at,
+                    u.username AS uploader
              FROM files f
              JOIN users u ON u.id = f.owner_id
              ORDER BY f.created_at DESC
-             LIMIT 8`
+             LIMIT 10`
         );
-        const recentActivity = recentFileActivity.map((row) => ({
-            action: row.file_type === 'recipe' ? 'Recipe uploaded' : 'File uploaded',
-            user: row.username,
-            time: timeAgo(row.created_at)
+
+        const recentActivity = recentFiles.map((f) => ({
+            text: `${f.uploader} uploaded ${f.filename}`,
+            type: 'upload',
+            time: f.created_at,
         }));
 
-        const dashboardData = {
+        res.status(200).json({
             stats: {
-                totalUsers,
-                totalFiles,
-                systemAlerts: lowStockItems > 0 ? 1 : 0
+                totalFiles: Number(totalFiles) || 0,
+                totalUsers: Number(totalUsers) || 0,
+                publicRecipes: Number(publicRecipes) || 0,
+                systemAlerts: Number(systemAlerts) || 0,
             },
-            quickStats: {
-                todaySales: Number(todaySales) || 0,
-                productionToday: Number(productionToday) || 0,
-                lowStockItems: Number(lowStockItems) || 0,
-                pendingOrders: Number(pendingOrders) || 0
+            trends: {
+                filesAddedThisWeek: Number(filesAddedThisWeek) || 0,
+                newRegistrationsThisWeek: Number(newRegistrationsThisWeek) || 0,
+                publicRecipesSharedThisWeek: Number(publicRecipesSharedThisWeek) || 0,
+                systemAlertsThisWeek: 0
             },
-            recentActivity
-        };
-
-        res.status(200).json(dashboardData);
+            recentActivity,
+        });
     } catch (error) {
         console.error('Admin dashboard error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -103,47 +127,82 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
  */
 router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
     try {
-        const recipeCount = await safeScalar("SELECT COUNT(*) as count FROM files WHERE file_type = 'recipe'");
-        const myRecipeCount = await safeScalar(
-            "SELECT COUNT(*) as count FROM files WHERE file_type = 'recipe' AND owner_id = ?",
-            [req.user.id]
-        );
-        const productionToday = await safeScalar(
-            'SELECT COALESCE(SUM(quantity_produced), 0) as total FROM production_logs WHERE performed_by = ? AND production_date >= CURDATE() AND production_date < DATE_ADD(CURDATE(), INTERVAL 1 DAY)',
-            [req.user.id],
-            0
-        );
+        const userId = req.user.id;
 
-        const recentUploads = await safeRows(
-            `SELECT filename, file_type, created_at
+        const myRecipes = await safeScalar(
+            `SELECT COUNT(*) AS myRecipes
              FROM files
-             WHERE owner_id = ?
-             ORDER BY created_at DESC
-             LIMIT 5`,
-            [req.user.id]
+             WHERE file_type = 'recipe' AND owner_id = ?`,
+            [userId]
         );
 
-        const dashboardData = {
-            stats: {
-                recipesManaged: recipeCount,
-                myRecipes: myRecipeCount,
-                productionToday: Number(productionToday) || 0
-            },
-            schedule: [
-                { time: '06:00 AM', task: 'Start bread dough preparation', status: 'completed' },
-                { time: '07:30 AM', task: 'Bake croissants batch 1', status: 'completed' },
-                { time: '09:00 AM', task: 'Prepare cake orders', status: 'in_progress' },
-                { time: '11:00 AM', task: 'Lunch pastries production', status: 'pending' },
-                { time: '02:00 PM', task: 'Special orders preparation', status: 'pending' }
-            ],
-            recentUploads: recentUploads.map(r => ({
-                filename: r.filename,
-                file_type: r.file_type,
-                time: timeAgo(r.created_at)
-            }))
-        };
+        const sharedSchedules = await safeScalar(
+            `SELECT COUNT(*) AS sharedSchedules
+             FROM files
+             WHERE file_type = 'schedule' AND is_public = 1`
+        );
 
-        res.status(200).json(dashboardData);
+        const myRecipesAddedThisMonth = await safeScalar(
+            `SELECT COUNT(*) AS myRecipesAddedThisMonth
+             FROM files
+             WHERE file_type = 'recipe'
+               AND owner_id = ?
+               AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+            [userId]
+        );
+
+        const sharedSchedulesActiveThisWeek = await safeScalar(
+            `SELECT COUNT(*) AS sharedSchedulesActiveThisWeek
+             FROM files
+             WHERE file_type = 'schedule'
+               AND is_public = 1
+               AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`
+        );
+
+        const productionToday = await safeScalar(
+            `SELECT COUNT(*) AS productionToday
+             FROM files
+             WHERE file_type = 'schedule'
+               AND owner_id = ?
+               AND created_at >= CURDATE()
+               AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)`,
+            [userId]
+        );
+
+        // Use schedule files owned by the staff user as "today schedule" rows.
+        const scheduleRows = await safeRows(
+            `SELECT id, filename, created_at
+             FROM files
+             WHERE file_type = 'schedule' AND owner_id = ?
+             ORDER BY created_at DESC
+             LIMIT 10`,
+            [userId]
+        );
+
+        const schedule = scheduleRows.map((r) => {
+            const d = new Date(r.created_at);
+            const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            return {
+                time,
+                batchName: r.filename,
+                recipeDocument: null,
+                status: 'pending',
+            };
+        });
+
+        res.status(200).json({
+            stats: {
+                myRecipes: Number(myRecipes) || 0,
+                sharedSchedules: Number(sharedSchedules) || 0,
+                productionToday: Number(productionToday) || 0,
+            },
+            trends: {
+                myRecipesAddedThisMonth: Number(myRecipesAddedThisMonth) || 0,
+                sharedSchedulesActiveThisWeek: Number(sharedSchedulesActiveThisWeek) || 0,
+                productionTodayTrend: 0
+            },
+            schedule,
+        });
     } catch (error) {
         console.error('Staff dashboard error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -156,32 +215,69 @@ router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
  */
 router.get('/user', authMiddleware, requireRole('user'), async (req, res) => {
     try {
-        // Optional ERP tables — otherwise fall back.
-        const ordersToday = await safeScalar(
-            'SELECT COUNT(*) as count FROM orders WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)',
-            [],
-            0
-        );
-        const todaySales = await safeScalar(
-            'SELECT COALESCE(SUM(total_amount), 0) as total FROM sales WHERE performed_by = ? AND sale_date >= CURDATE() AND sale_date < DATE_ADD(CURDATE(), INTERVAL 1 DAY)',
-            [req.user.id],
-            0
+        const userId = req.user.id;
+
+        const myInvoices = await safeScalar(
+            `SELECT COUNT(*) AS myInvoices
+             FROM files
+             WHERE file_type = 'invoice' AND owner_id = ?`,
+            [userId]
         );
 
-        const dashboardData = {
+        const myReports = await safeScalar(
+            `SELECT COUNT(*) AS myReports
+             FROM files
+             WHERE file_type = 'report' AND owner_id = ?`,
+            [userId]
+        );
+
+        const sharedDocs = await safeScalar(
+            `SELECT COUNT(*) AS sharedDocs
+             FROM files
+             WHERE is_public = 1 AND owner_id <> ?`,
+            [userId]
+        );
+
+        const myInvoicesThisMonth = await safeScalar(
+            `SELECT COUNT(*) AS myInvoicesThisMonth
+             FROM files
+             WHERE file_type = 'invoice'
+               AND owner_id = ?
+               AND created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+            [userId]
+        );
+
+        const myReportsFiledThisWeek = await safeScalar(
+            `SELECT COUNT(*) AS myReportsFiledThisWeek
+             FROM files
+             WHERE file_type = 'report'
+               AND owner_id = ?
+               AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+            [userId]
+        );
+
+        const sharedDocsThisWeek = await safeScalar(
+            `SELECT COUNT(*) AS sharedDocsThisWeek
+             FROM files
+             WHERE is_public = 1
+               AND owner_id <> ?
+               AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+            [userId]
+        );
+
+        res.status(200).json({
             stats: {
-                ordersToday: Number(ordersToday) || 0,
-                todaySales: Number(todaySales) || 0
+                myInvoices: Number(myInvoices) || 0,
+                myReports: Number(myReports) || 0,
+                sharedDocs: Number(sharedDocs) || 0,
             },
-            notifications: [
-                { message: 'New cake order received from Cafe Delights', time: '30 min ago', type: 'order' },
-                { message: 'Payment confirmed for Order #1247', time: '1 hour ago', type: 'payment' },
-                { message: 'Low stock alert: Vanilla extract', time: '2 hours ago', type: 'alert' },
-                { message: 'Customer feedback received for Order #1245', time: '3 hours ago', type: 'feedback' }
-            ]
-        };
-
-        res.status(200).json(dashboardData);
+            trends: {
+                myInvoicesThisMonth: Number(myInvoicesThisMonth) || 0,
+                myReportsFiledThisWeek: Number(myReportsFiledThisWeek) || 0,
+                sharedDocsThisWeek: Number(sharedDocsThisWeek) || 0
+            },
+            notifications: [],
+        });
     } catch (error) {
         console.error('User dashboard error:', error);
         res.status(500).json({ error: 'Internal server error' });

@@ -7,10 +7,11 @@
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-    <div class="app-shell">
-        <aside id="app-sidebar"></aside>
-        <div class="app-main">
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <div class="main-content" id="main-content">
             <div class="app-topbar">
+                <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar">☰</button>
                 <div class="topbar-title">BakeSync · Dashboard</div>
                 <div class="topbar-actions">
                     <button class="btn btn-outline btn-sm" type="button" onclick="loadStaffDashboard()">Refresh</button>
@@ -24,22 +25,32 @@
                     <p>Welcome back! Here's your production schedule and tasks.</p>
                 </div>
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>Recipes Managed</h3>
-                        <div class="value" id="stat-recipes">-</div>
+                <div class="kpi-row kpi-row-3">
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <span class="kpi-label">My Recipes</span>
+                            <div class="kpi-icon-wrapper"><span class="kpi-icon" aria-hidden="true">📘</span></div>
+                        </div>
+                        <div class="kpi-card-value" id="kpi-my-recipes">-</div>
+                        <div class="kpi-card-footer"><span class="kpi-trend up" id="kpi-my-recipes-trend">-</span></div>
                     </div>
-                    <div class="stat-card">
-                        <h3>Production Today</h3>
-                        <div class="value" id="stat-production">-</div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <span class="kpi-label">Shared Schedules</span>
+                            <div class="kpi-icon-wrapper"><span class="kpi-icon" aria-hidden="true">🗓️</span></div>
+                        </div>
+                        <div class="kpi-card-value" id="kpi-shared-schedules">-</div>
+                        <div class="kpi-card-footer"><span class="kpi-trend up" id="kpi-shared-schedules-trend">-</span></div>
                     </div>
-                    <div class="stat-card">
-                        <h3>Low Stock Items</h3>
-                        <div class="value" id="stat-low-stock">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Pending Orders</h3>
-                        <div class="value" id="stat-pending-orders">0</div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-card-header">
+                            <span class="kpi-label">Production Batches</span>
+                            <div class="kpi-icon-wrapper"><span class="kpi-icon" aria-hidden="true">📦</span></div>
+                        </div>
+                        <div class="kpi-card-value" id="kpi-production-batches">-</div>
+                        <div class="kpi-card-footer"><span class="kpi-trend up" id="kpi-production-batches-trend">-</span></div>
                     </div>
                 </div>
 
@@ -83,32 +94,89 @@
                     </table>
                 </div>
 
-                <div class="content-card">
-                    <h3>Document Manager (Preview)</h3>
-                    <p class="text-sm text-muted" style="margin-bottom: 1rem;">
-                        Files you can access (owner + public). Non-owners are denied for private files.
-                    </p>
-                    <div style="margin-bottom: 0.75rem;">
-                        <strong id="recent-files-count">-</strong>
+                <div class="content-card docmgr" id="dashboard-docmgr">
+                    <div class="docmgr-header">
+                        <div class="docmgr-title">
+                            <h3>Document Manager</h3>
+                            <p>Your files and shared documents</p>
+                        </div>
+                        <div class="docmgr-actions">
+                            <a class="docmgr-link" href="files.html?type=recipe">View All →</a>
+                            <button class="btn btn-primary btn-sm" type="button" id="docmgr-upload-btn">+ Add Recipe</button>
+                        </div>
                     </div>
-                    <ul id="recent-files-list" class="activity-list">
-                        <li class="loading">
-                            <div class="spinner"></div>
-                        </li>
-                    </ul>
-                    <div style="margin-top: 1rem;">
-                        <a href="files.html" class="btn btn-primary">Open Document Manager</a>
+
+                    <div class="file-type-tabs" id="docmgr-tabs" role="tablist" aria-label="File type filters"></div>
+
+                    <div style="margin-bottom: 0.5rem; color: var(--muted-foreground); font-size: 0.875rem;">
+                        <strong id="docmgr-count">-</strong>
+                    </div>
+
+                    <div class="docmgr-list" id="docmgr-list"></div>
+                    <div id="docmgr-empty" style="display:none;"></div>
+
+                    <div class="docmgr-upload collapsed" id="docmgr-upload-panel">
+                        <div class="docmgr-upload-btn" style="background: transparent; border-bottom: 1px solid var(--border);">
+                            <span style="font-weight:700;">Add a new document</span>
+                            <a href="#" class="btn btn-outline btn-sm" id="docmgr-upload-cancel" style="margin-left:auto;">Cancel</a>
+                        </div>
+                        <div class="docmgr-upload-panel">
+                            <form id="docmgr-upload-form">
+                                <div class="docmgr-upload-form-grid">
+                                    <div class="form-group">
+                                        <label for="docmgr-filename">Filename</label>
+                                        <input type="text" id="docmgr-filename" placeholder="e.g., morning_bake_schedule.pdf" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="docmgr-type">File Type</label>
+                                        <select id="docmgr-type">
+                                            <option value="recipe">Recipe</option>
+                                            <option value="report">Report</option>
+                                            <option value="schedule">Schedule</option>
+                                            <option value="invoice">Invoice</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-group" style="margin-top: 0.75rem;">
+                                    <label for="docmgr-description">Description</label>
+                                    <textarea id="docmgr-description" rows="2" placeholder="Optional description"></textarea>
+                                </div>
+
+                                <div class="docmgr-upload-actions">
+                                    <label class="checkbox-wrapper" style="display:flex; align-items:center; gap:0.5rem; margin-right:auto;">
+                                        <input type="checkbox" id="docmgr-is-public">
+                                        <span>Make file public</span>
+                                    </label>
+                                    <button type="submit" class="btn btn-primary">Upload</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- File Details Modal (shared with files.html) -->
+    <div id="file-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">File Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
+    </div>
+
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
     <script src="../js/dashboard.js"></script>
+    <script src="../js/files.js"></script>
     <script src="../js/sidebar.js"></script>
     <script>
+        initSidebar();
+        setActiveNavItem();
         loadStaffDashboard();
     </script>
 </body>
