@@ -13,8 +13,6 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('admin', 'staff', 'user') NOT NULL,
     otp_code VARCHAR(6) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
-    delete_otp_code VARCHAR(6) DEFAULT NULL,
-    delete_otp_expires_at DATETIME DEFAULT NULL,
     is_verified TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -59,6 +57,4 @@ INSERT INTO files (filename, description, file_type, owner_id, is_public) VALUES
 -- Migration script for existing databases (run if tables already exist):
 -- ALTER TABLE users ADD COLUMN email VARCHAR(100) UNIQUE AFTER username;
 -- ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0 AFTER otp_expires_at;
--- ALTER TABLE users ADD COLUMN delete_otp_code VARCHAR(6) DEFAULT NULL AFTER otp_expires_at;
--- ALTER TABLE users ADD COLUMN delete_otp_expires_at DATETIME DEFAULT NULL AFTER delete_otp_code;
 -- UPDATE users SET email = CONCAT(username, '@bakesync.demo'), is_verified = 1 WHERE email IS NULL;

@@ -152,7 +152,7 @@ router.post('/me/delete/request-otp', authMiddleware, async (req, res) => {
         const otpExpiry = getOTPExpiry();
 
         await pool.execute(
-            'UPDATE users SET delete_otp_code = ?, delete_otp_expires_at = ? WHERE id = ?',
+            'UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?',
             [otpCode, otpExpiry, userId]
         );
 
@@ -179,22 +179,22 @@ router.post('/me/delete/confirm', authMiddleware, async (req, res) => {
         }
 
         const [rows] = await pool.execute(
-            'SELECT id, delete_otp_code, delete_otp_expires_at FROM users WHERE id = ?',
+            'SELECT id, otp_code, otp_expires_at FROM users WHERE id = ?',
             [userId]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
         const user = rows[0];
-        if (!user.delete_otp_code || !user.delete_otp_expires_at) {
+        if (!user.otp_code || !user.otp_expires_at) {
             return res.status(400).json({ error: 'No deletion code requested' });
         }
 
-        if (user.delete_otp_code !== String(otp)) {
+        if (user.otp_code !== String(otp)) {
             return res.status(401).json({ error: 'Invalid OTP code' });
         }
 
         const now = new Date();
-        const expiry = new Date(user.delete_otp_expires_at);
+        const expiry = new Date(user.otp_expires_at);
         if (now > expiry) {
             return res.status(401).json({ error: 'OTP has expired. Please request a new code.' });
         }

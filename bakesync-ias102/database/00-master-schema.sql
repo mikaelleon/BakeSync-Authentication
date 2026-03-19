@@ -21,8 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('admin', 'staff', 'user') NOT NULL,
     otp_code VARCHAR(6) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
-    delete_otp_code VARCHAR(6) DEFAULT NULL,
-    delete_otp_expires_at DATETIME DEFAULT NULL,
     is_verified TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
