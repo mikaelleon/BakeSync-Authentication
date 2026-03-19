@@ -828,6 +828,7 @@ input[type="checkbox"] {
 .gap-4 {
     gap: 1rem;
 }
+<<<<<<< HEAD
 
 /* =======================================================
    App Shell (Sidebar + Main) — matches original layout
@@ -1555,3 +1556,5 @@ input[type="checkbox"] {
     transform: translateY(0);
     opacity: 1;
 }
+=======
+>>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)

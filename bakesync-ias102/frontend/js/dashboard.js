@@ -37,16 +37,11 @@ async function loadAdminDashboard() {
     if (!requireAuth()) return;
 
     initNavbar();
-    // Frontend guard (backend also enforces RBAC)
-    const me = getCurrentUser();
-    if (me.role !== 'admin') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Manager dashboard is restricted to Admin (Manager) role.')}`;
-        return;
-    }
 
     try {
         const data = await apiGet('/api/dashboard/admin');
 
+<<<<<<< HEAD
         // Update KPIs
         const adminStats = data.stats || {};
         const adminTrends = data.trends || {};
@@ -58,13 +53,19 @@ async function loadAdminDashboard() {
         safeTextById('kpi-total-users-trend', `↑ ${adminTrends.newRegistrationsThisWeek ?? 0} new registrations`);
         safeTextById('kpi-public-recipes-trend', `↑ ${adminTrends.publicRecipesSharedThisWeek ?? 0} shared this week`);
         safeTextById('kpi-system-alerts-trend', `↓ ${adminTrends.systemAlertsThisWeek ?? 0} this week`);
+=======
+        // Update stats
+        document.getElementById('stat-users').textContent = data.stats.totalUsers;
+        document.getElementById('stat-files').textContent = data.stats.totalFiles;
+        document.getElementById('stat-alerts').textContent = data.stats.systemAlerts;
+>>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
 
         // Populate activity list
         const activityList = document.getElementById('activity-list');
         if (!activityList) return;
         activityList.innerHTML = '';
 
-        (data.recentActivity || []).forEach(item => {
+        data.recentActivity.forEach(item => {
             const li = document.createElement('li');
             li.innerHTML = `
                 <span class="action">${item.text || ''}</span>
@@ -81,9 +82,6 @@ async function loadAdminDashboard() {
         if (error.message === 'Unauthorized') {
             logout();
         }
-        if (String(error.message || '').toLowerCase().includes('forbidden')) {
-            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
-        }
     }
 }
 
@@ -94,15 +92,11 @@ async function loadStaffDashboard() {
     if (!requireAuth()) return;
 
     initNavbar();
-    const me = getCurrentUser();
-    if (me.role !== 'staff') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Baker dashboard is restricted to Staff (Baker) role.')}`;
-        return;
-    }
 
     try {
         const data = await apiGet('/api/dashboard/staff');
 
+<<<<<<< HEAD
         // Update KPIs
         const staffStats = data.stats || {};
         const staffTrends = data.trends || {};
@@ -112,12 +106,17 @@ async function loadStaffDashboard() {
         safeTextById('kpi-my-recipes-trend', `↑ ${staffTrends.myRecipesAddedThisMonth ?? 0} added this month`);
         safeTextById('kpi-shared-schedules-trend', `↑ ${staffTrends.sharedSchedulesActiveThisWeek ?? 0} active this week`);
         safeTextById('kpi-production-batches-trend', `↑ ${staffStats.productionToday ?? 0} scheduled today`);
+=======
+        // Update stats
+        document.getElementById('stat-recipes').textContent = data.stats.recipesManaged;
+        document.getElementById('stat-production').textContent = data.stats.productionToday;
+>>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
 
         // Populate schedule table
         const scheduleBody = document.getElementById('schedule-body');
         if (scheduleBody) scheduleBody.innerHTML = '';
 
-        (data.schedule || []).forEach(item => {
+        data.schedule.forEach(item => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${item.time}</td>
@@ -134,9 +133,6 @@ async function loadStaffDashboard() {
         if (error.message === 'Unauthorized') {
             logout();
         }
-        if (String(error.message || '').toLowerCase().includes('forbidden')) {
-            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
-        }
     }
 }
 
@@ -147,15 +143,11 @@ async function loadUserDashboard() {
     if (!requireAuth()) return;
 
     initNavbar();
-    const me = getCurrentUser();
-    if (me.role !== 'user') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Cashier dashboard is restricted to User (Cashier) role.')}`;
-        return;
-    }
 
     try {
         const data = await apiGet('/api/dashboard/user');
 
+<<<<<<< HEAD
         // Update KPIs
         const s = data.stats || {};
         const t = data.trends || {};
@@ -165,13 +157,17 @@ async function loadUserDashboard() {
         safeTextById('kpi-my-invoices-trend', `↑ ${t.myInvoicesThisMonth ?? 0} this month`);
         safeTextById('kpi-my-reports-trend', `↑ ${t.myReportsFiledThisWeek ?? 0} filed this week`);
         safeTextById('kpi-shared-docs-trend', `↑ ${t.sharedDocsThisWeek ?? 0} accessible this week`);
+=======
+        // Update stats
+        document.getElementById('stat-orders').textContent = data.stats.ordersToday;
+>>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
 
         // Populate notifications
         const notificationList = document.getElementById('notification-list');
         if (!notificationList) return;
         notificationList.innerHTML = '';
 
-        (data.notifications || []).forEach(item => {
+        data.notifications.forEach(item => {
             const li = document.createElement('li');
             li.innerHTML = `
                 <div class="message">${item.message}</div>
@@ -186,9 +182,6 @@ async function loadUserDashboard() {
         console.error('Dashboard load error:', error);
         if (error.message === 'Unauthorized') {
             logout();
-        }
-        if (String(error.message || '').toLowerCase().includes('forbidden')) {
-            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
         }
     }
 }
