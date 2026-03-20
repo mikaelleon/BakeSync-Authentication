@@ -3,16 +3,73 @@ const fs = require('fs');
 const path = require('path');
 
 // Build connection config
+function normalizeDbHost(rawHost) {
+    if (!rawHost) return rawHost;
+
+    let host = String(rawHost).trim();
+
+    // Allow URLs like mysql://host:port or host:port
+    // (We only extract host; DB_PORT is already handled separately.)
+    host = host.replace(/^mysql:\/\//i, '').replace(/^mongodb:\/\//i, '');
+    host = host.split('/')[0];
+
+    // If accidentally provided as host:port, strip port part.
+    if (host.includes(':')) {
+        host = host.split(':')[0];
+    }
+
+    // Common typo seen in deployments: "bakesync-bakesync.a.aivencloud.com"
+    // -> "bakesync.a.aivencloud.com"
+    host = host.replace(/^bakesync-bakesync\./i, 'bakesync.');
+
+    return host;
+}
+
+function buildDbConfigFromEnv() {
+    // Support platforms that provide a single DB URL.
+    // Example: mysql://user:pass@host:port/dbname
+    const databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl) {
+        try {
+            const url = new URL(databaseUrl);
+            return {
+                host: normalizeDbHost(url.hostname),
+                port: url.port ? Number(url.port) : 3306,
+                user: decodeURIComponent(url.username),
+                password: decodeURIComponent(url.password),
+                database: url.pathname.replace(/^\//, '')
+            };
+        } catch (e) {
+            console.warn('Invalid DATABASE_URL format; falling back to individual DB_* env vars.');
+        }
+    }
+
+    return {
+        host: normalizeDbHost(process.env.DB_HOST),
+        port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME
+    };
+}
+
+const envDb = buildDbConfigFromEnv();
 const dbConfig = {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3306,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    host: envDb.host,
+    port: envDb.port,
+    user: envDb.user,
+    password: envDb.password,
+    database: envDb.database,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 };
+
+if (!dbConfig.host) {
+    console.warn('DB_HOST is not set; MySQL connection will fail.');
+} else {
+    console.log('DB host:', dbConfig.host);
+}
 
 // Add SSL configuration for Aiven (production)
 if (process.env.DB_SSL === 'true') {
