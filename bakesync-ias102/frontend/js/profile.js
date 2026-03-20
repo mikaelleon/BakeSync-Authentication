@@ -18,6 +18,25 @@ function showSuccess(message) {
     if (alert) alert.style.display = 'flex';
 }
 
+function showFieldError(fieldId, message) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.textContent = message;
+    el.style.display = 'block';
+}
+
+function clearFieldError(fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.textContent = '';
+    el.style.display = 'none';
+}
+
+function clearProfileFieldErrors() {
+    clearFieldError('profile-username-error');
+    clearFieldError('profile-email-error');
+}
+
 async function loadProfile() {
     const data = await apiGet('/api/users/me');
     document.getElementById('username').value = data.username || '';
@@ -31,16 +50,69 @@ async function handleProfileSave(event) {
     const username = document.getElementById('username').value.trim();
     const email = document.getElementById('email').value.trim();
 
+    clearProfileFieldErrors();
+
+    if (!username || !email) {
+        showToast('Username and email are required.', 'error');
+        return;
+    }
+
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
 
     try {
-        const res = await apiPatch('/api/users/me', { username, email });
-        if (res.user?.username) sessionStorage.setItem('username', res.user.username);
-        if (res.token) sessionStorage.setItem('token', res.token);
-        initNavbar();
+        const token = sessionStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/api/users/me`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ username, email }),
+        });
+
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (_) {
+            data = {};
+        }
+
+        if (!res.ok) {
+            if (res.status === 409) {
+                const err = String(data.error || '');
+                const errLc = err.toLowerCase();
+
+                if (errLc.includes('username')) {
+                    showFieldError('profile-username-error', 'This username is already taken.');
+                } else if (errLc.includes('email')) {
+                    showFieldError('profile-email-error', 'This email is already registered.');
+                } else {
+                    showToast(err || 'Failed to save changes.', 'error');
+                }
+
+                showToast(data.error || 'Failed to save changes.', 'error');
+                return;
+            }
+
+            showToast(data.error || 'Failed to save changes.', 'error');
+            showError(data.error || 'Failed to save changes.');
+            return;
+        }
+
+        if (data.user?.username) sessionStorage.setItem('username', data.user.username);
+        if (data.token) sessionStorage.setItem('token', data.token);
+
+        // Keep sidebar username in sync without forcing a full refresh.
+        const sidebarUserName = document.querySelector('.sidebar-user-name');
+        if (sidebarUserName) sidebarUserName.textContent = data.user?.username || username;
+
+        if (typeof initNavbar === 'function') initNavbar();
+
         showSuccess('Profile updated.');
+        showToast('Profile updated successfully.', 'success');
     } catch (e) {
+        showToast('Network error. Changes not saved.', 'error');
         showError(e.message || 'Failed to update profile');
     } finally {
         saveBtn.disabled = false;
@@ -109,5 +181,96 @@ async function confirmDelete(event) {
 
     const deleteForm = document.getElementById('delete-form');
     if (deleteForm) deleteForm.addEventListener('submit', confirmDelete);
+
+    // Collapsible password change section toggle
+    const passwordToggle = document.getElementById('password-card-toggle');
+    const passwordBody = document.getElementById('password-form-body');
+    const passwordChevron = document.getElementById('password-chevron');
+
+    passwordToggle?.addEventListener('click', () => {
+        if (!passwordBody) return;
+        const isOpen = passwordBody.style.display !== 'none';
+        passwordBody.style.display = isOpen ? 'none' : 'block';
+        if (passwordChevron) passwordChevron.textContent = isOpen ? '▼' : '▲';
+    });
+
+    // Password change submit
+    const changePasswordBtn = document.getElementById('change-password-btn');
+    changePasswordBtn?.addEventListener('click', async () => {
+        const currentPassword = document.getElementById('current-password')?.value || '';
+        const newPassword = document.getElementById('new-password')?.value || '';
+        const confirmNewPassword = document.getElementById('confirm-new-password')?.value || '';
+
+        clearFieldError('current-password-error');
+        clearFieldError('new-password-error');
+        clearFieldError('confirm-new-password-error');
+
+        let valid = true;
+
+        if (!currentPassword) {
+            showFieldError('current-password-error', 'Enter your current password.');
+            valid = false;
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+            showFieldError('new-password-error', 'New password must be at least 6 characters.');
+            valid = false;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            showFieldError('confirm-new-password-error', 'Passwords do not match.');
+            valid = false;
+        }
+
+        if (!valid) return;
+
+        changePasswordBtn.disabled = true;
+        changePasswordBtn.textContent = 'Updating...';
+
+        try {
+            const token = sessionStorage.getItem('token');
+            const res = await fetch(`${API_BASE}/api/users/me/change-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    currentPassword: currentPassword,
+                    newPassword: newPassword,
+                }),
+            });
+
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (_) {
+                data = {};
+            }
+
+            if (!res.ok) {
+                if (res.status === 401) {
+                    showFieldError('current-password-error', data.error || 'Current password is incorrect.');
+                } else {
+                    showToast(data.error || 'Failed to change password.', 'error');
+                }
+                return;
+            }
+
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-new-password').value = '';
+
+            showToast('Password changed successfully.', 'success');
+
+            if (passwordBody) passwordBody.style.display = 'none';
+            if (passwordChevron) passwordChevron.textContent = '▼';
+        } catch (e) {
+            showToast('Network error. Password not changed.', 'error');
+        } finally {
+            changePasswordBtn.disabled = false;
+            changePasswordBtn.textContent = 'Change Password';
+        }
+    });
 })();
 

@@ -100,6 +100,15 @@ function getSidebarElements() {
   return { sidebar, mainContent };
 }
 
+function getDashboardUrl(role) {
+  const map = {
+    admin: 'dashboard-admin.html',
+    staff: 'dashboard-staff.html',
+    user: 'dashboard-user.html',
+  };
+  return map[role] || 'login.html';
+}
+
 function currentIsMobile() {
   return window.innerWidth < 768;
 }
@@ -139,17 +148,18 @@ function renderSidebarContent() {
   const navItems = getSidebarNavByRole(user.role);
   const role = user.role;
   const username = user.username || 'User';
+  const dashboardUrl = getDashboardUrl(role);
 
   sidebar.innerHTML = `
     <div class="sidebar-inner">
       <div class="sidebar-header">
-        <div class="sidebar-logo">
+        <a href="${dashboardUrl}" class="sidebar-logo-link sidebar-logo" title="Go to Dashboard">
           <div class="sidebar-logo-mark" aria-hidden="true">🥐</div>
           <div class="sidebar-logo-wordmark">
             <div class="sidebar-logo-title">BakeSync</div>
             <div class="sidebar-logo-subtitle">Bakery ERP</div>
           </div>
-        </div>
+        </a>
 
         <button class="sidebar-collapse-toggle" type="button" id="sidebar-toggle-btn" aria-label="Toggle sidebar">
           ${iconSvg('chevron-right')}
@@ -170,9 +180,18 @@ function renderSidebarContent() {
             }
 
             const iconKey = labelToIconKey(item.label);
-            const fileType = item.fileType ? `data-file-type="${item.fileType}"` : '';
+            let filesNavData = '';
+            if (item.href && String(item.href).startsWith('files.html')) {
+              const [base, query] = String(item.href).split('?');
+              let t = '';
+              if (query) {
+                const params = new URLSearchParams(query);
+                t = params.get('type') || '';
+              }
+              filesNavData = `data-path="${base}" data-type="${t}"`;
+            }
             return `
-              <a class="sidebar-link" href="${item.href}" ${fileType}>
+              <a class="sidebar-link" href="${item.href}" ${filesNavData}>
                 <span class="sidebar-link-icon" aria-hidden="true">${iconSvg(iconKey)}</span>
                 <span class="sidebar-link-text">${item.label}</span>
               </a>
@@ -222,6 +241,14 @@ function initTooltips() {
   const tooltipId = 'sidebar-tooltip';
   let tooltipEl = document.getElementById(tooltipId);
 
+  // Improvement 24: Hide sidebar tooltip whenever a modal is opened.
+  document.addEventListener('modal:open', () => {
+    if (!tooltipEl) return;
+    tooltipEl.style.opacity = '0';
+    tooltipEl.style.display = 'none';
+    tooltipEl.style.visibility = 'hidden';
+  });
+
   function ensureTooltip() {
     if (tooltipEl) return tooltipEl;
     tooltipEl = document.createElement('div');
@@ -268,32 +295,39 @@ function setActiveNavItem() {
   const { sidebar } = getSidebarElements();
   if (!sidebar) return;
 
-  const pathname = window.location.pathname || '';
-  const params = new URLSearchParams(window.location.search || '');
-  const typeParam = params.get('type');
+  const currentPath = window.location.pathname || '';
+  const currentParams = new URLSearchParams(window.location.search || '');
+  const currentType = currentParams.get('type');
 
   // Clear active styles
   sidebar.querySelectorAll('.sidebar-link.active').forEach((el) => el.classList.remove('active'));
 
-  const links = sidebar.querySelectorAll('.sidebar-link[href]');
-  links.forEach((a) => {
-    const href = a.getAttribute('href') || '';
-    const anchorPath = href.split('?')[0];
-    const isFilesPage = anchorPath.endsWith('files.html');
+  // File-type nav items (files.html)
+  const fileNavItems = sidebar.querySelectorAll('.sidebar-link[data-path]');
+  fileNavItems.forEach((item) => {
+    const itemPath = item.dataset.path || '';
+    const rawType = item.dataset.type;
+    const itemType = rawType ? rawType : null;
 
-    let isActive = false;
-    if (isFilesPage && pathname.endsWith('files.html')) {
-      const itemType = a.getAttribute('data-file-type');
-      // If the base Document Manager has no fileType, treat it as "All"
-      if (!itemType) {
-        isActive = !typeParam;
-      } else {
-        isActive = String(itemType) === String(typeParam);
-      }
-    } else {
-      isActive = pathname.endsWith(anchorPath);
+    const pathMatches =
+      currentPath.endsWith(itemPath) || currentPath.includes(itemPath);
+    if (!pathMatches) return;
+
+    if (itemType) {
+      if (String(currentType) === String(itemType)) item.classList.add('active');
+      return;
     }
 
+    // Document Manager ("All") should be active only when no ?type exists.
+    if (!currentType) item.classList.add('active');
+  });
+
+  // Fallback for non-files.html links (dashboard + other pages)
+  const otherLinks = sidebar.querySelectorAll('.sidebar-link[href]:not([data-path])');
+  otherLinks.forEach((a) => {
+    const href = a.getAttribute('href') || '';
+    const anchorPath = href.split('?')[0];
+    const isActive = currentPath.endsWith(anchorPath) || currentPath.includes(anchorPath);
     if (isActive) a.classList.add('active');
   });
 }

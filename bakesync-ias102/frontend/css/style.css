@@ -627,6 +627,152 @@ input[type="checkbox"] {
     color: var(--muted-foreground);
 }
 
+/* IAS102: Dashboard sections + KPI onboarding + notifications */
+.dashboard-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.section-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--foreground);
+}
+
+.section-subtitle {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    margin-top: 0.15rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 1.25rem 0.5rem;
+    color: var(--muted-foreground);
+}
+
+.empty-state-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-title {
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 0.25rem;
+}
+
+.empty-state-body {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    margin-bottom: 1rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    letter-spacing: 0.05em;
+}
+
+.badge-green {
+    background: rgba(22, 163, 74, 0.08);
+    color: var(--success);
+    border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.badge-red {
+    background: rgba(185, 28, 28, 0.08);
+    color: var(--destructive);
+    border: 1px solid rgba(185, 28, 28, 0.25);
+}
+
+.badge-primary {
+    background: rgba(161, 104, 50, 0.08);
+    color: var(--primary);
+    border: 1px solid rgba(161, 104, 50, 0.25);
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    transition: background 150ms ease;
+    cursor: pointer;
+}
+
+.notification-item.unread {
+    background: rgba(161, 104, 50, 0.05);
+    border-color: rgba(161, 104, 50, 0.25);
+}
+
+.notification-item:hover {
+    background: rgba(161, 104, 50, 0.10);
+}
+
+.notification-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+
+.notification-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: var(--muted);
+    flex-shrink: 0;
+}
+
+.notification-message {
+    font-size: 0.875rem;
+    color: var(--foreground);
+    margin-bottom: 0.25rem;
+}
+
+.notification-time {
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+}
+
 /* File Table */
 .file-table {
     width: 100%;
@@ -678,7 +824,7 @@ input[type="checkbox"] {
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 9000;
     padding: 1rem;
 }
 
@@ -690,12 +836,17 @@ input[type="checkbox"] {
     background: var(--card);
     border-radius: var(--radius-xl);
     padding: 1.5rem;
+    z-index: 9001;
     width: 100%;
     max-width: 500px;
     max-height: 80vh;
     overflow-y: auto;
     border: 1px solid var(--border);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.access-denied-modal {
+    z-index: 9002;
 }
 
 .modal-header {
@@ -915,6 +1066,14 @@ input[type="checkbox"] {
     align-items: center;
 }
 
+.sidebar-logo-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+
 .sidebar-logo-mark {
     width: 2.5rem;
     height: 2.5rem;
@@ -1069,7 +1228,7 @@ input[type="checkbox"] {
     font-size: 12px;
     color: var(--foreground);
     pointer-events: none;
-    z-index: 1000;
+    z-index: 10000;
     display: none;
     visibility: hidden;
     box-shadow: 0 10px 20px rgba(0,0,0,0.08);
@@ -1382,6 +1541,19 @@ input[type="checkbox"] {
     margin: 8px 0 4px 0;
 }
 
+.kpi-card-value.zero {
+    color: var(--muted-foreground);
+    opacity: 0.5;
+}
+
+.kpi-zero-hint {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    font-style: italic;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
 .kpi-trend {
     font-size: 0.8125rem;
     color: var(--muted-foreground);
@@ -1393,6 +1565,32 @@ input[type="checkbox"] {
 
 .kpi-trend.down {
     color: var(--destructive);
+}
+
+.onboarding-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(161, 104, 50, 0.08);
+    border: 1px solid rgba(161, 104, 50, 0.3);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 24px 0;
+}
+
+.onboarding-banner-icon {
+    font-size: 28px;
+}
+
+.onboarding-banner-body strong {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.onboarding-banner-body p {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    margin: 4px 0 0 0;
 }
 
 /* Filter Tabs */
@@ -1424,12 +1622,32 @@ input[type="checkbox"] {
     background: transparent;
 }
 
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+    background: rgba(161, 104, 50, 0.15);
+    color: var(--primary);
+}
+
+.filter-tab.active .tab-badge {
+    background: rgba(161, 104, 50, 0.9);
+    color: #fff;
+}
+
 /* Toast */
 .toast {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    z-index: 9999;
+    z-index: 10001;
     background: var(--card);
     border: 1px solid var(--border);
     border-left: 4px solid var(--success);
@@ -1535,6 +1753,22 @@ input[type="checkbox"] {
     border-radius: var(--radius-lg);
     background: var(--card);
     margin-bottom: 0.75rem;
+}
+
+@keyframes cardFlash {
+    0% {
+        background-color: var(--card);
+    }
+    30% {
+        background-color: rgba(161, 104, 50, 0.12);
+    }
+    100% {
+        background-color: var(--card);
+    }
+}
+
+.card-updated {
+    animation: cardFlash 600ms ease;
 }
 
 .file-card-locked {

@@ -55,68 +55,94 @@ function formatTimeShort(d) {
  */
 router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
     try {
-        const totalUsers = await safeScalar('SELECT COUNT(*) AS totalUsers FROM users WHERE is_verified = 1');
-        const totalFiles = await safeScalar('SELECT COUNT(*) AS totalFiles FROM files');
-        const publicRecipes = await safeScalar(
-            "SELECT COUNT(*) AS publicRecipes FROM files WHERE file_type = 'recipe' AND is_public = 1"
+        const userId = req.user.id;
+        void userId; // keep for parity with the spec; queries below are admin-wide
+
+        // Total verified users
+        const [[{ totalUsers }]] = await pool.execute(
+            `SELECT COUNT(*) AS totalUsers
+             FROM users WHERE is_verified = 1`
         );
 
-        // systemAlerts: low stock items from inventory_items if exists, else 0
-        const lowStockItems = await safeScalar('SELECT COUNT(*) AS count FROM inventory_items WHERE quantity < minimum_stock');
-        const systemAlerts = Number(lowStockItems) || 0;
-
-        const filesAddedThisWeek = await safeScalar(
-            'SELECT COUNT(*) AS count FROM files WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
-            [],
-            0
-        );
-        const newRegistrations = await safeScalar(
-            'SELECT COUNT(*) AS count FROM users WHERE is_verified = 1 AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
-            [],
-            0
-        );
-        const sharedWithTeamThisWeek = await safeScalar(
-            "SELECT COUNT(*) AS count FROM files WHERE file_type = 'recipe' AND is_public = 1 AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
-            [],
-            0
-        );
-        const systemAlertsThisWeek = await safeScalar(
-            'SELECT COUNT(*) AS count FROM inventory_items WHERE quantity < minimum_stock',
-            [],
-            systemAlerts
+        // Total files across all users
+        const [[{ totalFiles }]] = await pool.execute(
+            `SELECT COUNT(*) AS totalFiles FROM files`
         );
 
-        const recentFiles = await safeRows(
-            `SELECT f.filename, f.file_type, f.created_at, u.username
+        // Public recipes specifically
+        const [[{ publicRecipes }]] = await pool.execute(
+            `SELECT COUNT(*) AS publicRecipes FROM files
+             WHERE file_type = 'recipe' AND is_public = 1`
+        );
+
+        // Files uploaded in the last 7 days
+        const [[{ recentUploads }]] = await pool.execute(
+            `SELECT COUNT(*) AS recentUploads FROM files
+             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+        );
+
+        // Unverified accounts (pending verification)
+        const [[{ pendingAccounts }]] = await pool.execute(
+            `SELECT COUNT(*) AS pendingAccounts
+             FROM users WHERE is_verified = 0`
+        );
+
+        // Private files count (DAC demo stat)
+        const [[{ privateFiles }]] = await pool.execute(
+            `SELECT COUNT(*) AS privateFiles
+             FROM files WHERE is_public = 0`
+        );
+
+        // Recent denied access from audit log (used as "systemAlerts" KPI)
+        let deniedCount = 0;
+        try {
+            const [[{ denials }]] = await pool.execute(
+                `SELECT COUNT(*) AS denials FROM access_logs
+                 WHERE result = 'denied'
+                   AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)`
+            );
+            deniedCount = denials;
+        } catch (_) {
+            // access_logs table may not exist yet — safe to ignore
+        }
+
+        // Recent activity: last 10 file uploads with uploader info
+        const [recentActivity] = await pool.execute(
+            `SELECT
+               f.id,
+               f.filename,
+               f.file_type,
+               f.created_at,
+               u.username  AS uploader,
+               u.role      AS uploader_role
              FROM files f
-             JOIN users u ON u.id = f.owner_id
+             JOIN users u ON f.owner_id = u.id
              ORDER BY f.created_at DESC
              LIMIT 10`
         );
 
-        const recentActivity = recentFiles.map((f) => ({
-            text: `${f.username} uploaded ${f.filename}`,
-            type: 'upload',
-            time: f.created_at
-        }));
-
         res.status(200).json({
             stats: {
-                totalFiles,
                 totalUsers,
+                totalFiles,
                 publicRecipes,
-                systemAlerts,
-
-                filesAddedThisWeek,
-                newRegistrations,
-                sharedWithTeamThisWeek,
-                systemAlertsThisWeek
+                recentUploads,
+                pendingAccounts,
+                privateFiles,
+                systemAlerts: deniedCount
             },
-            recentActivity
+            recentActivity: (recentActivity || []).map((f) => ({
+                id: f.id,
+                text: `${f.uploader} uploaded ${f.filename}`,
+                type: 'upload',
+                fileType: f.file_type,
+                uploaderRole: f.uploader_role,
+                time: f.created_at
+            }))
         });
     } catch (error) {
         console.error('Admin dashboard error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to load dashboard data.' });
     }
 });
 
@@ -128,91 +154,73 @@ router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const myRecipes = await safeScalar(
-            "SELECT COUNT(*) AS myRecipes FROM files WHERE file_type = 'recipe' AND owner_id = ?",
-            [userId],
-            0
-        );
-
-        const sharedSchedules = await safeScalar(
-            "SELECT COUNT(*) AS sharedSchedules FROM files WHERE file_type = 'schedule' AND is_public = 1",
-            [],
-            0
-        );
-
-        // productionToday: production logs if present, otherwise fallback to today's schedule files created by user
-        const productionToday = await safeScalar(
-            'SELECT COUNT(*) AS productionToday FROM production_logs WHERE performed_by = ? AND production_date >= CURDATE() AND production_date < DATE_ADD(CURDATE(), INTERVAL 1 DAY)',
-            [userId],
-            0
-        );
-
-        const myRecipesAddedThisMonth = await safeScalar(
-            "SELECT COUNT(*) AS c FROM files WHERE file_type = 'recipe' AND owner_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL DAY(CURDATE())-1 DAY)",
-            [userId],
-            0
-        );
-
-        const sharedSchedulesActiveThisWeek = await safeScalar(
-            "SELECT COUNT(*) AS c FROM files WHERE file_type = 'schedule' AND is_public = 1 AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
-            [],
-            0
-        );
-
-        const scheduledToday = await safeScalar(
-            "SELECT COUNT(*) AS c FROM files WHERE file_type = 'schedule' AND owner_id = ? AND created_at >= CURDATE()",
-            [userId],
-            0
-        );
-
-        const scheduleFiles = await safeRows(
-            `SELECT id, filename, created_at, owner_id
-             FROM files
-             WHERE file_type = 'schedule' AND owner_id = ?
-             ORDER BY created_at DESC
-             LIMIT 10`,
+        // Recipes owned by this user
+        const [[{ myRecipes }]] = await pool.execute(
+            `SELECT COUNT(*) AS myRecipes FROM files
+             WHERE file_type = 'recipe' AND owner_id = ?`,
             [userId]
         );
 
-        const latestRecipe = await safeRows(
-            `SELECT id, filename
-             FROM files
-             WHERE file_type = 'recipe' AND owner_id = ?
-             ORDER BY created_at DESC
-             LIMIT 1`,
+        // Public schedules visible to this user
+        const [[{ sharedSchedules }]] = await pool.execute(
+            `SELECT COUNT(*) AS sharedSchedules FROM files
+             WHERE file_type = 'schedule' AND is_public = 1`
+        );
+
+        // Derive productionToday from schedules uploaded today (real DB data)
+        const [[{ productionToday }]] = await pool.execute(
+            `SELECT COUNT(*) AS productionToday FROM files
+             WHERE file_type = 'schedule'
+               AND (owner_id = ? OR is_public = 1)
+               AND DATE(created_at) = CURDATE()`,
             [userId]
         );
-        const latestRecipeFile = latestRecipe[0] || null;
 
-        const dashboardData = {
+        // Total documents owned by this user
+        const [[{ totalMyDocs }]] = await pool.execute(
+            `SELECT COUNT(*) AS totalMyDocs FROM files
+             WHERE owner_id = ?`,
+            [userId]
+        );
+
+        // Latest 5 schedules visible to this user
+        const [schedules] = await pool.execute(
+            `SELECT
+               f.id,
+               f.filename,
+               f.description,
+               f.is_public,
+               f.created_at,
+               u.username AS owner
+             FROM files f
+             JOIN users u ON f.owner_id = u.id
+             WHERE f.file_type = 'schedule'
+               AND (f.owner_id = ? OR f.is_public = 1)
+             ORDER BY f.created_at DESC
+             LIMIT 5`,
+            [userId]
+        );
+
+        res.status(200).json({
             stats: {
                 myRecipes,
                 sharedSchedules,
                 productionToday,
-
-                myRecipesAddedThisMonth,
-                sharedSchedulesActiveThisWeek,
-                scheduledToday
+                totalMyDocs
             },
-            schedule: [
-                ...scheduleFiles.map((sf, idx) => {
-                    const status =
-                        idx % 3 === 0 ? 'completed' : idx % 3 === 1 ? 'in_progress' : 'pending';
-                    return {
-                        time: formatTimeShort(sf.created_at),
-                        batchName: sf.filename.replace(/\.[^/.]+$/, ''),
-                        recipeFileId: latestRecipeFile ? latestRecipeFile.id : null,
-                        recipeFileName: latestRecipeFile ? latestRecipeFile.filename : null,
-                        status
-                    };
-                })
-            ]
-        };
-
-        res.status(200).json(dashboardData);
+            schedule: (schedules || []).map((s) => ({
+                id: s.id,
+                filename: s.filename,
+                description: s.description,
+                owner: s.owner,
+                is_public: s.is_public,
+                time: s.created_at,
+                status: 'active'
+            }))
+        });
     } catch (error) {
         console.error('Staff dashboard error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to load dashboard data.' });
     }
 });
 
@@ -224,73 +232,70 @@ router.get('/user', authMiddleware, requireRole('user'), async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const myInvoices = await safeScalar(
-            "SELECT COUNT(*) AS myInvoices FROM files WHERE file_type = 'invoice' AND owner_id = ?",
-            [userId],
-            0
-        );
-
-        const myReports = await safeScalar(
-            "SELECT COUNT(*) AS myReports FROM files WHERE file_type = 'report' AND owner_id = ?",
-            [userId],
-            0
-        );
-
-        const sharedDocs = await safeScalar(
-            'SELECT COUNT(*) AS sharedDocs FROM files WHERE is_public = 1 AND owner_id != ?',
-            [userId],
-            0
-        );
-
-        const invoicesAddedThisMonth = await safeScalar(
-            "SELECT COUNT(*) AS c FROM files WHERE file_type = 'invoice' AND owner_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL DAY(CURDATE())-1 DAY)",
-            [userId],
-            0
-        );
-
-        const reportsAddedThisWeek = await safeScalar(
-            "SELECT COUNT(*) AS c FROM files WHERE file_type = 'report' AND owner_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
-            [userId],
-            0
-        );
-
-        const sharedDocsAccessibleThisWeek = await safeScalar(
-            'SELECT COUNT(*) AS c FROM files WHERE is_public = 1 AND owner_id != ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
-            [userId],
-            0
-        );
-
-        const recentPublicDocs = await safeRows(
-            `SELECT f.filename, f.file_type, f.created_at, u.username
-             FROM files f
-             JOIN users u ON u.id = f.owner_id
-             WHERE f.is_public = 1 AND f.owner_id != ?
-             ORDER BY f.created_at DESC
-             LIMIT 8`,
+        // Invoices owned by this user
+        const [[{ myInvoices }]] = await pool.execute(
+            `SELECT COUNT(*) AS myInvoices FROM files
+             WHERE file_type = 'invoice' AND owner_id = ?`,
             [userId]
         );
 
-        const dashboardData = {
+        // Reports owned by this user
+        const [[{ myReports }]] = await pool.execute(
+            `SELECT COUNT(*) AS myReports FROM files
+             WHERE file_type = 'report' AND owner_id = ?`,
+            [userId]
+        );
+
+        // Public documents from other users
+        const [[{ sharedDocs }]] = await pool.execute(
+            `SELECT COUNT(*) AS sharedDocs FROM files
+             WHERE is_public = 1 AND owner_id != ?`,
+            [userId]
+        );
+
+        // Total documents accessible to this user
+        const [[{ totalAccessible }]] = await pool.execute(
+            `SELECT COUNT(*) AS totalAccessible FROM files
+             WHERE owner_id = ? OR is_public = 1`,
+            [userId]
+        );
+
+        // Notifications: use 5 most recently uploaded public files from other users
+        const [notifications] = await pool.execute(
+            `SELECT
+               f.id,
+               f.filename,
+               f.file_type,
+               f.created_at,
+               u.username AS uploader,
+               u.role     AS uploader_role
+             FROM files f
+             JOIN users u ON f.owner_id = u.id
+             WHERE f.is_public = 1
+               AND f.owner_id != ?
+             ORDER BY f.created_at DESC
+             LIMIT 5`,
+            [userId]
+        );
+
+        res.status(200).json({
             stats: {
                 myInvoices,
                 myReports,
                 sharedDocs,
-
-                invoicesAddedThisMonth,
-                reportsAddedThisWeek,
-                sharedDocsAccessibleThisWeek
+                totalAccessible
             },
-            notifications: recentPublicDocs.map((d) => ({
-                message: `New public ${d.file_type} posted by ${d.username}`,
-                time: d.created_at,
-                unread: true
+            notifications: (notifications || []).map((n) => ({
+                id: n.id,
+                message: `${n.uploader} shared a new ${n.file_type}: ${n.filename}`,
+                type: n.file_type,
+                time: n.created_at,
+                read: false
             }))
-        };
-
-        res.status(200).json(dashboardData);
+        });
     } catch (error) {
         console.error('User dashboard error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to load dashboard data.' });
     }
 });
 

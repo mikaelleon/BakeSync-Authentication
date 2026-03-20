@@ -258,19 +258,32 @@ function escapeHtml(text) {
 // =======================================================
 
 // Relative time formatter (used by activity feed + notifications)
-function timeAgo(dateString) {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffSeconds = Math.floor((now - date) / 1000);
+function timeAgo(dateInput) {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return 'Unknown time';
 
-    if (diffSeconds < 60) return 'Just now';
-    if (diffSeconds < 3600) return Math.floor(diffSeconds / 60) + ' minutes ago';
-    if (diffSeconds < 86400) return Math.floor(diffSeconds / 3600) + ' hours ago';
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+
+    if (diff < 5) return 'Just now';
+    if (diff < 60) return `${diff} seconds ago`;
+    if (diff < 3600) {
+        const m = Math.floor(diff / 60);
+        return `${m} minute${m !== 1 ? 's' : ''} ago`;
+    }
+    if (diff < 86400) {
+        const h = Math.floor(diff / 3600);
+        return `${h} hour${h !== 1 ? 's' : ''} ago`;
+    }
+    if (diff < 604800) {
+        const d = Math.floor(diff / 86400);
+        return `${d} day${d !== 1 ? 's' : ''} ago`;
+    }
 
     return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        year: 'numeric'
+        year: 'numeric',
     });
 }
 
@@ -292,6 +305,14 @@ function showToast(message, type = 'success') {
         toast.classList.remove('toast-visible');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+function debounce(fn, delay) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
 }
 
 function formatDateLong(dateString) {
@@ -376,12 +397,13 @@ function closeFileModal() {
 }
 
 function openAccessDeniedModal(message) {
+    document.dispatchEvent(new CustomEvent('modal:open'));
     let modal = document.getElementById('access-denied-modal');
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'access-denied-modal';
-        modal.className = 'modal-overlay show';
-        modal.style.zIndex = '1200';
+        modal.className = 'modal-overlay show access-denied-modal';
+        modal.style.zIndex = '9002';
         modal.innerHTML = `
           <div class="modal">
             <div class="modal-header">
@@ -409,6 +431,7 @@ function closeAccessDeniedModal() {
 }
 
 async function openFileModal(fileId) {
+    document.dispatchEvent(new CustomEvent('modal:open'));
     const modal = ensureFileModal();
     const body = modal.querySelector('#modal-body');
     const title = modal.querySelector('#modal-title');
@@ -534,7 +557,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
         <div class="doc-widget-header">
           <div>
             <div class="doc-widget-title">Document Manager</div>
-            <div class="doc-widget-subtext">Your files and shared documents</div>
+            <div class="doc-widget-subtext">Your files first, then shared documents</div>
           </div>
           <div class="doc-widget-header-right">
             <a href="files.html" class="btn btn-outline btn-sm">View All &rarr;</a>
@@ -555,7 +578,9 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
     if (uploadPanel) uploadPanel.classList.add('collapsed');
 
     const activeDefault = roleDefaultDocumentTab(role);
-    renderFilterTabs(containerEl.querySelector('#widget-filter-tabs'), role, activeDefault);
+    // Tabs will be rendered after we load accessible files (so counts are correct).
+    const ROLE_DEFAULT_FILE_TYPE = { admin: 'recipe', staff: 'recipe', user: 'invoice' };
+    const roleDefaultFileType = ROLE_DEFAULT_FILE_TYPE[role] || 'recipe';
 
     const listEl = containerEl.querySelector('#widget-file-list');
     const tabsEl = containerEl.querySelector('#widget-filter-tabs');
@@ -568,7 +593,43 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
 
     // Local cache: API called once.
     const allFiles = await apiGet(apiFilesEndpoint).then((x) => (Array.isArray(x) ? x : []));
-    const filesSorted = allFiles.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Improvement 12: own files first, then public files from others (both sorted by created_at desc).
+    const myFiles = allFiles
+        .filter((f) => !!f.isOwner)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const publicFiles = allFiles
+        .filter((f) => !f.isOwner && (f.is_public === 1 || f.is_public === true))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const filesSorted = [...myFiles, ...publicFiles];
+
+    // Used to apply a short "flash" animation after visibility updates.
+    let lastVisibilityUpdatedId = null;
+
+    function refreshTabs(activeTabValue) {
+        const counts = {
+            all: filesSorted.length,
+            recipe: filesSorted.filter((f) => f.file_type === 'recipe').length,
+            report: filesSorted.filter((f) => f.file_type === 'report').length,
+            schedule: filesSorted.filter((f) => f.file_type === 'schedule').length,
+            invoice: filesSorted.filter((f) => f.file_type === 'invoice').length
+        };
+
+        const tabs = [
+            { key: 'all', label: 'All' },
+            { key: 'recipe', label: 'Recipes' },
+            { key: 'report', label: 'Reports' },
+            { key: 'schedule', label: 'Schedules' },
+            { key: 'invoice', label: 'Invoices' }
+        ];
+
+        tabsEl.innerHTML = tabs
+            .map((t) => {
+                const count = counts[t.key] || 0;
+                const badge = count > 0 ? `<span class="tab-badge">${count}</span>` : '';
+                return `<button type="button" class="filter-tab ${t.key === activeTabValue ? 'active' : ''}" data-tab="${t.key}">${t.label}${badge}</button>`;
+            })
+            .join('');
+    }
 
     function renderListForTab(tabKey) {
         const filtered = tabKey === 'all' ? filesSorted : filesSorted.filter((f) => f.file_type === tabKey);
@@ -593,13 +654,14 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 const isPublic = file.is_public === 1 || file.is_public === true;
                 const visibilityLabel = isPublic ? 'Public' : 'Private';
                 const ownerLabel = isOwner ? 'You' : 'Shared';
-                const dateLabel = file.created_at ? new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                const dateTitle = file.created_at ? new Date(file.created_at).toLocaleString() : '';
+                const dateLabel = file.created_at ? timeAgo(file.created_at) : '—';
                 const lockOverlay = !isPublic && !isOwner ? `<div class="file-card-locked">🔒 Access restricted</div>` : '';
                 const lockOwnerMuted = !isPublic && isOwner ? `<div class="file-card-locked file-card-locked-muted">🔒 Your private file</div>` : '';
 
                 const visibilityBadgeClass = isPublic ? 'public' : 'private';
                 return `
-                  <div class="file-card">
+                  <div class="file-card ${String(file.id) === String(lastVisibilityUpdatedId) ? 'card-updated' : ''}">
                     <div class="file-card-icon">
                       ${fileTypeIcon(typeKey)}
                       ${lockOverlay || lockOwnerMuted ? '' : ''}
@@ -609,7 +671,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                       <div class="file-card-meta">
                         <span class="file-type-badge ${escapeHtml(visibilityBadgeClass)}">${escapeHtml(typeKey)}</span>
                         <span class="file-owner">${escapeHtml(ownerLabel)}</span>
-                        <span class="file-date">${escapeHtml(dateLabel)}</span>
+                        <span class="file-date" ${dateTitle ? `title="${escapeHtml(dateTitle)}"` : ''}>${escapeHtml(dateLabel)}</span>
                       </div>
                     </div>
                     <div class="file-card-actions">
@@ -634,18 +696,46 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
         listEl.querySelectorAll('[data-delete-file]').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 const fileId = btn.getAttribute('data-delete-file');
-                const filename = btn.closest('.file-card')?.querySelector('.file-card-name')?.textContent || 'this file';
-                const ok = window.confirm(`Delete "${filename}"?`);
-                if (!ok) return;
+                const cardEl = btn.closest('.file-card');
+                const actionsEl = cardEl?.querySelector('.file-card-actions');
+                if (!actionsEl) return;
 
-                try {
-                    await apiDelete(`/api/files/${fileId}`);
-                    const idx = filesSorted.findIndex((f) => String(f.id) === String(fileId));
-                    if (idx >= 0) filesSorted.splice(idx, 1);
-                    showToast('File deleted successfully.', 'success');
-                    renderListForTab(tabKey);
-                } catch (e) {
-                    showToast(String(e.message || 'Delete failed'), 'error');
+                actionsEl.innerHTML = `
+                  <span class="delete-confirm-text">Delete this file?</span>
+                  <button class="btn btn-danger btn-sm confirm-yes"
+                          type="button"
+                          data-delete-file-id="${escapeHtml(String(fileId))}">
+                    Delete
+                  </button>
+                  <button class="btn btn-ghost btn-sm confirm-no" type="button">Cancel</button>
+                `;
+
+                const confirmYes = actionsEl.querySelector('.confirm-yes');
+                const confirmNo = actionsEl.querySelector('.confirm-no');
+
+                if (confirmNo) {
+                    confirmNo.addEventListener('click', () => {
+                        renderListForTab(tabKey);
+                    });
+                }
+
+                if (confirmYes) {
+                    confirmYes.addEventListener('click', async () => {
+                        confirmYes.disabled = true;
+                        confirmYes.textContent = 'Deleting...';
+
+                        try {
+                            await apiDelete(`/api/files/${fileId}`);
+                            const idx = filesSorted.findIndex((f) => String(f.id) === String(fileId));
+                            if (idx >= 0) filesSorted.splice(idx, 1);
+                            showToast('File deleted successfully.', 'success');
+                            refreshTabs(activeTab);
+                            renderListForTab(tabKey);
+                        } catch (e) {
+                            showToast(String(e.message || 'Delete failed'), 'error');
+                            renderListForTab(tabKey);
+                        }
+                    });
                 }
             });
         });
@@ -659,7 +749,14 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 try {
                     await apiPatch(`/api/files/${fileId}/visibility`, { is_public: nextIsPublic ? 1 : 0 });
                     file.is_public = nextIsPublic;
-                    showToast('Visibility updated.', 'success');
+                    lastVisibilityUpdatedId = fileId;
+                    showToast(
+                        nextIsPublic
+                            ? 'File is now public — visible to all users.'
+                            : 'File is now private — only you can access it.',
+                        'success'
+                    );
+                    refreshTabs(activeTab);
                     renderListForTab(tabKey);
                 } catch (e) {
                     showToast(String(e.message || 'Update failed'), 'error');
@@ -669,11 +766,16 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
     }
 
     let activeTab = activeDefault;
+    refreshTabs(activeTab);
     tabsEl.addEventListener('click', (e) => {
         const btn = e.target.closest('.filter-tab');
         if (!btn) return;
         const tabKey = btn.getAttribute('data-tab');
         activeTab = tabKey;
+
+        // Role-aware upload defaults: keep widget upload type in sync with active tab.
+        const typeSel = containerEl.querySelector('#widget-upload-type');
+        if (typeSel) typeSel.value = tabKey !== 'all' ? tabKey : roleDefaultFileType;
 
         // Update active class + re-render using cached files.
         tabsEl.querySelectorAll('.filter-tab').forEach((t) => t.classList.toggle('active', t.getAttribute('data-tab') === tabKey));
@@ -737,6 +839,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 };
                 filesSorted.unshift(newFile);
                 showToast('File added successfully.', 'success');
+                refreshTabs(activeTab);
                 closeUploadPanel();
                 renderListForTab(activeTab);
             } catch (e) {
@@ -832,121 +935,158 @@ function iconWrapperHTML(iconType) {
     return `<div class="kpi-icon-wrapper">${svg}</div>`;
 }
 
-function renderKpiCard({ label, value, trendText, iconHtml, valueTone }) {
+function renderKpiValue(value, zeroLabel, valueTone) {
+    const numeric = Number(value);
+    if (numeric === 0) {
+        return `
+          <div class="kpi-card-value zero">0</div>
+          <div class="kpi-zero-hint">${escapeHtml(zeroLabel || '')}</div>
+        `;
+    }
+
+    return `
+      <div class="kpi-card-value" ${valueTone ? `style="color:${valueTone};"` : ''}>${escapeHtml(String(value))}</div>
+    `;
+}
+
+function renderKpiCard({ label, value, zeroLabel, trendText, iconHtml, valueTone }) {
     const card = document.createElement('div');
     card.className = 'kpi-card';
+
+    const footerHtml = trendText ? `
+      <div class="kpi-card-footer">
+        <span class="kpi-trend up">${escapeHtml(trendText)}</span>
+      </div>
+    ` : '';
 
     card.innerHTML = `
       <div class="kpi-card-header">
         <span class="kpi-label">${escapeHtml(label)}</span>
         ${iconHtml}
       </div>
-      <div class="kpi-card-value" ${valueTone ? `style="color:${valueTone};"` : ''}>${escapeHtml(String(value))}</div>
-      <div class="kpi-card-footer">
-        <span class="kpi-trend up">${escapeHtml(trendText)}</span>
-      </div>
+      ${renderKpiValue(value, zeroLabel, valueTone)}
+      ${footerHtml}
     `;
     return card;
 }
 
 function renderKpiRow(role, stats) {
-    if (!stats) return document.createElement('div');
-
+    const safe = stats || {};
     const row = document.createElement('div');
     row.className = role === 'admin' ? 'kpi-row-4' : 'kpi-row-3';
 
     if (role === 'admin') {
-        row.appendChild(
-            renderKpiCard({
-                label: 'Total Documents',
-                value: stats.totalFiles,
-                trendText: `↑ ${stats.filesAddedThisWeek || 0} this week`,
-                iconHtml: iconWrapperHTML('folder')
-            })
-        );
-        row.appendChild(
-            renderKpiCard({
-                label: 'Total Users',
-                value: stats.totalUsers,
-                trendText: `↑ ${stats.newRegistrations || 0} this week`,
-                iconHtml: iconWrapperHTML('users')
-            })
-        );
-        row.appendChild(
-            renderKpiCard({
-                label: 'Public Recipes',
-                value: stats.publicRecipes,
-                trendText: `↑ ${stats.sharedWithTeamThisWeek || 0} shared with team`,
-                iconHtml: iconWrapperHTML('book-open')
-            })
-        );
-        const alertTrend = `${stats.systemAlertsThisWeek || 0} this week`;
-        row.appendChild(
-            renderKpiCard({
-                label: 'System Alerts',
-                value: stats.systemAlerts,
-                trendText: `↑ ${alertTrend}`,
-                iconHtml: iconWrapperHTML('alert-triangle'),
-                valueTone: stats.systemAlerts > 0 ? 'var(--warning)' : undefined
-            })
-        );
+        const totalFiles = Number(safe.totalFiles || 0);
+        const totalUsers = Number(safe.totalUsers || 0);
+        const publicRecipes = Number(safe.publicRecipes || 0);
+        const systemAlerts = Number(safe.systemAlerts || 0);
+
+        row.appendChild(renderKpiCard({
+            label: 'Total Documents',
+            value: totalFiles,
+            zeroLabel: 'No documents yet — upload the first one.',
+            iconHtml: iconWrapperHTML('folder'),
+        }));
+        row.appendChild(renderKpiCard({
+            label: 'Total Users',
+            value: totalUsers,
+            zeroLabel: 'No registered users yet.',
+            iconHtml: iconWrapperHTML('users'),
+        }));
+        row.appendChild(renderKpiCard({
+            label: 'Public Recipes',
+            value: publicRecipes,
+            zeroLabel: 'No shared recipes — mark a recipe as public.',
+            iconHtml: iconWrapperHTML('book-open'),
+        }));
+        row.appendChild(renderKpiCard({
+            label: 'System Alerts',
+            value: systemAlerts,
+            zeroLabel: 'No alerts in the last 24 hours.',
+            iconHtml: iconWrapperHTML('alert-triangle'),
+            valueTone: systemAlerts > 0 ? 'var(--warning)' : undefined
+        }));
         return row;
     }
 
     if (role === 'staff') {
-        row.appendChild(
-            renderKpiCard({
-                label: 'My Recipes',
-                value: stats.myRecipes,
-                trendText: `↑ ${stats.myRecipesAddedThisMonth || 0} this month`,
-                iconHtml: iconWrapperHTML('book-open')
-            })
-        );
-        row.appendChild(
-            renderKpiCard({
-                label: 'Shared Schedules',
-                value: stats.sharedSchedules,
-                trendText: `↑ ${stats.sharedSchedulesActiveThisWeek || 0} active this week`,
-                iconHtml: iconWrapperHTML('calendar')
-            })
-        );
-        row.appendChild(
-            renderKpiCard({
-                label: 'Production Batches',
-                value: stats.productionToday,
-                trendText: `↑ ${stats.scheduledToday || 0} scheduled today`,
-                iconHtml: iconWrapperHTML('calendar')
-            })
-        );
+        const myRecipes = Number(safe.myRecipes || 0);
+        const sharedSchedules = Number(safe.sharedSchedules || 0);
+        const productionToday = Number(safe.productionToday || 0);
+
+        row.appendChild(renderKpiCard({
+            label: 'My Recipes',
+            value: myRecipes,
+            zeroLabel: 'You have no recipes yet — add your first one.',
+            iconHtml: iconWrapperHTML('book-open'),
+        }));
+        row.appendChild(renderKpiCard({
+            label: 'Shared Schedules',
+            value: sharedSchedules,
+            zeroLabel: 'No shared schedules available.',
+            iconHtml: iconWrapperHTML('calendar'),
+        }));
+        row.appendChild(renderKpiCard({
+            label: 'Production Batches',
+            value: productionToday,
+            zeroLabel: 'Nothing scheduled for today.',
+            iconHtml: iconWrapperHTML('calendar'),
+        }));
         return row;
     }
 
     // user
-    row.appendChild(
-        renderKpiCard({
-            label: 'My Invoices',
-            value: stats.myInvoices,
-            trendText: `↑ ${stats.invoicesAddedThisMonth || 0} this month`,
-            iconHtml: iconWrapperHTML('file-text')
-        })
-    );
-    row.appendChild(
-        renderKpiCard({
-            label: 'My Reports',
-            value: stats.myReports,
-            trendText: `↑ ${stats.reportsAddedThisWeek || 0} filed this week`,
-            iconHtml: iconWrapperHTML('bar-chart')
-        })
-    );
-    row.appendChild(
-        renderKpiCard({
-            label: 'Shared Documents',
-            value: stats.sharedDocs,
-            trendText: `↑ ${stats.sharedDocsAccessibleThisWeek || 0} accessible to you`,
-            iconHtml: iconWrapperHTML('files')
-        })
-    );
+    const myInvoices = Number(safe.myInvoices || 0);
+    const myReports = Number(safe.myReports || 0);
+    const sharedDocs = Number(safe.sharedDocs || 0);
+
+    row.appendChild(renderKpiCard({
+        label: 'My Invoices',
+        value: myInvoices,
+        zeroLabel: 'No invoices yet — upload your first.',
+        iconHtml: iconWrapperHTML('file-text')
+    }));
+    row.appendChild(renderKpiCard({
+        label: 'My Reports',
+        value: myReports,
+        zeroLabel: 'No reports filed yet.',
+        iconHtml: iconWrapperHTML('bar-chart')
+    }));
+    row.appendChild(renderKpiCard({
+        label: 'Shared Documents',
+        value: sharedDocs,
+        zeroLabel: 'No shared documents from other users.',
+        iconHtml: iconWrapperHTML('files')
+    }));
     return row;
+}
+
+function renderOnboardingBanner(role, containerEl, stats) {
+    const safeStats = stats || {};
+    const values = Object.values(safeStats);
+    const allZero = values.length > 0 && values.every((v) => Number(v) === 0);
+    if (!allZero) return;
+
+    const roleAction = {
+        admin: 'Upload your first document to get started.',
+        staff: 'Add your first recipe to begin.',
+        user: 'Upload your first invoice to get started.',
+    };
+
+    const banner = document.createElement('div');
+    banner.className = 'onboarding-banner';
+    banner.innerHTML = `
+      <div class="onboarding-banner-icon">🚀</div>
+      <div class="onboarding-banner-body">
+        <strong>Welcome to BakeSync!</strong>
+        <p>${escapeHtml(roleAction[role] || 'Get started by adding your first document.')}</p>
+      </div>
+      <a href="files.html?action=upload" class="btn btn-primary btn-sm">
+        Get Started
+      </a>
+    `;
+
+    containerEl.appendChild(banner);
 }
 
 function renderActivityFeed(activity) {
@@ -975,7 +1115,10 @@ function renderActivityFeed(activity) {
                 <div class="activity-dot" style="width: 8px; height: 8px; border-radius: 9999px; background:${dotColor}; margin-top: 6px;"></div>
                 <div class="activity-body" style="flex:1;">
                   <div class="activity-text" style="font-size: 0.875rem; color: var(--foreground);">${escapeHtml(item.text || '')}</div>
-                  <div class="activity-time" style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 2px;">${escapeHtml(timeAgo(item.time))}</div>
+                  <span class="activity-time" style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 2px;"
+                        title="${new Date(item.time).toLocaleString()}">
+                    ${escapeHtml(timeAgo(item.time))}
+                  </span>
                 </div>
               </div>
             `;
@@ -1054,104 +1197,164 @@ async function renderAccessDeniedLogPanel() {
     return card;
 }
 
-function renderProductionScheduleTable(schedule) {
-    const card = document.createElement('div');
-    card.className = 'content-card';
-    card.innerHTML = `
-      <h3>Today's Production Schedule</h3>
-      <p class="text-sm text-muted" style="margin-top: -0.25rem; margin-bottom: 1rem; color: var(--muted-foreground);">Batches and recipes assigned for today</p>
-      <div id="schedule-wrap"></div>
+function renderProductionScheduleTable(schedules, containerEl) {
+    const section = document.createElement('div');
+    section.className = 'dashboard-section';
+
+    section.innerHTML = `
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Production Schedules</h2>
+          <p class="section-subtitle">
+            Your schedules and shared team schedules
+          </p>
+        </div>
+        <a href="files.html?type=schedule&action=upload"
+           class="btn-ghost btn-sm">
+          + Add Schedule
+        </a>
+      </div>
     `;
 
-    const wrap = card.querySelector('#schedule-wrap');
-    if (!schedule || schedule.length === 0) {
-        wrap.innerHTML = `
-          <div style="text-align:center; color: var(--muted-foreground); font-size: 0.875rem; padding: 0.75rem 0;">
-            No production scheduled for today.
-          </div>
-          <div style="text-align:center;">
-            <a class="btn btn-primary" href="files.html?type=schedule&action=upload">+ Add Schedule</a>
+    if (!schedules || schedules.length === 0) {
+        section.innerHTML += `
+          <div class="empty-state">
+            <div class="empty-state-icon">📅</div>
+            <p class="empty-state-title">No schedules yet</p>
+            <p class="empty-state-body">
+              Upload a schedule document to see it here.
+            </p>
+            <a href="files.html?type=schedule&action=upload"
+               class="btn-primary btn-sm">
+              Add Schedule
+            </a>
           </div>
         `;
-        return card;
+        if (containerEl) containerEl.appendChild(section);
+        return section;
     }
 
-    wrap.innerHTML = `
-      <table class="schedule-table">
-        <thead>
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Owner</th>
+          <th>Visibility</th>
+          <th>Uploaded</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${schedules.map((s) => `
           <tr>
-            <th>Time</th>
-            <th>Batch Name</th>
-            <th>Recipe Document</th>
-            <th>Status</th>
+            <td>
+              <div class="file-name-cell">
+                <span class="file-type-icon schedule"></span>
+                <span>${escapeHtml(s.filename)}</span>
+              </div>
+            </td>
+            <td>${escapeHtml(s.owner || '—')}</td>
+            <td>
+              <span class="badge ${s.is_public ? 'badge-green' : 'badge-red'}">
+                ${s.is_public ? 'Public' : 'Private'}
+              </span>
+            </td>
+            <td>
+              <span title="${new Date(s.time).toLocaleString()}">
+                ${escapeHtml(timeAgo(s.time))}
+              </span>
+            </td>
+            <td>
+              <button class="btn-ghost btn-sm" type="button" onclick="openFileModal(${s.id})">
+                View
+              </button>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          ${schedule
-              .map((row) => {
-                  const status = row.status || 'pending';
-                  const statusClass =
-                      status === 'completed' ? 'status-completed' :
-                          status === 'in_progress' ? 'status-in_progress' :
-                              'status-pending';
-                  const recipeLink =
-                      row.recipeFileId && row.recipeFileId !== null
-                          ? `<button type="button" class="btn btn-ghost btn-sm" onclick="openFileModal('${escapeHtml(String(row.recipeFileId))}')">${escapeHtml(row.recipeFileName || 'View recipe')}</button>`
-                          : '—';
-                  return `
-                    <tr>
-                      <td>${escapeHtml(row.time || '—')}</td>
-                      <td>${escapeHtml(row.batchName || '—')}</td>
-                      <td>${recipeLink}</td>
-                      <td class="${statusClass}">${escapeHtml(status.replace('_', ' '))}</td>
-                    </tr>
-                  `;
-              })
-              .join('')}
-        </tbody>
-      </table>
+        `).join('')}
+      </tbody>
     `;
-    return card;
+
+    section.appendChild(table);
+    if (containerEl) containerEl.appendChild(section);
+    return section;
 }
 
-function renderNotificationsPanel(notifications) {
-    const card = document.createElement('div');
-    card.className = 'content-card';
-    card.innerHTML = `
-      <h3>Notifications</h3>
-      <p class="text-sm text-muted" style="margin-top: -0.25rem; margin-bottom: 1rem; color: var(--muted-foreground);">Recent updates relevant to your role</p>
-      <div id="notif-list"></div>
+function getFileTypeIcon(type) {
+    const icons = {
+        recipe: '📖',
+        report: '📊',
+        schedule: '📅',
+        invoice: '🧾'
+    };
+    return icons[type] || '📄';
+}
+
+function renderNotificationsPanel(notifications, containerEl) {
+    const section = document.createElement('div');
+    section.className = 'dashboard-section';
+
+    const notifCount = Array.isArray(notifications) ? notifications.length : 0;
+
+    section.innerHTML = `
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Notifications</h2>
+          <p class="section-subtitle">
+            Recently shared documents from your team
+          </p>
+        </div>
+        ${notifCount > 0
+            ? `<span class="badge badge-primary">${notifCount} new</span>`
+            : ''
+        }
+      </div>
     `;
-    const wrap = card.querySelector('#notif-list');
 
     if (!notifications || notifications.length === 0) {
-        wrap.innerHTML = `
-          <div style="text-align:center; color: var(--muted-foreground); padding: 1rem 0;">
-            <div style="font-size: 1.25rem;">🔔</div>
-            <div>No new notifications.</div>
+        section.innerHTML += `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔔</div>
+            <p class="empty-state-title">No notifications</p>
+            <p class="empty-state-body">
+              When team members share documents, they will appear here.
+            </p>
           </div>
         `;
-        return card;
+        if (containerEl) containerEl.appendChild(section);
+        return section;
     }
 
-    wrap.innerHTML = `
-      ${notifications
-          .map((n) => {
-              const unread = n.unread;
-              return `
-                <div class="notification-item" style="display:flex; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: ${unread ? 'rgba(161, 104, 50, 0.05)' : 'var(--card)'}; margin-bottom: 0.75rem; position: relative;">
-                  <div class="notification-icon" style="font-size: 1.25rem;">🔔</div>
-                  <div class="notification-body">
-                    <div style="font-size: 0.875rem; color: var(--foreground);">${escapeHtml(n.message || '')}</div>
-                    <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 3px;">${escapeHtml(timeAgo(n.time))}</div>
-                  </div>
-                  ${unread ? `<div class="notification-dot" style="width: 10px; height: 10px; border-radius: 9999px; background: var(--primary); position:absolute; right: 14px; top: 14px;"></div>` : ''}
-                </div>
-              `;
-          })
-          .join('')}
-    `;
-    return card;
+    const list = document.createElement('div');
+    list.className = 'notification-list';
+
+    notifications.forEach((n) => {
+        const isRead = !!n.read;
+        const item = document.createElement('div');
+        item.className = `notification-item ${isRead ? 'read' : 'unread'}`;
+        item.innerHTML = `
+          <div class="notification-icon-wrap type-${escapeHtml(n.type || '')}">
+            ${escapeHtml(getFileTypeIcon(n.type || ''))}
+          </div>
+          <div class="notification-body">
+            <p class="notification-message">${escapeHtml(n.message || '')}</p>
+            <span class="notification-time"
+                  title="${new Date(n.time).toLocaleString()}">
+              ${escapeHtml(timeAgo(n.time))}
+            </span>
+          </div>
+          ${!isRead ? '<div class="notification-dot"></div>' : ''}
+        `;
+
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => openFileModal(n.id));
+        list.appendChild(item);
+    });
+
+    section.appendChild(list);
+    if (containerEl) containerEl.appendChild(section);
+    return section;
 }
 
 function renderDashboardShell(role, dashboardData) {
@@ -1192,7 +1395,9 @@ async function renderRoleDashboardContent(role) {
     main.appendChild(renderQuickActions(role));
 
     // KPI cards
-    main.appendChild(renderKpiRow(role, data.stats || {}));
+    const statsObj = data.stats || {};
+    main.appendChild(renderKpiRow(role, statsObj));
+    renderOnboardingBanner(role, main, statsObj);
 
     // Document Manager widget
     const widgetWrap = document.createElement('div');
@@ -1205,9 +1410,9 @@ async function renderRoleDashboardContent(role) {
         main.appendChild(renderActivityFeed(data.recentActivity || []));
         main.appendChild(await renderAccessDeniedLogPanel());
     } else if (role === 'staff') {
-        main.appendChild(renderProductionScheduleTable(data.schedule || []));
+        renderProductionScheduleTable(data.schedule || [], main);
     } else if (role === 'user') {
-        main.appendChild(renderNotificationsPanel(data.notifications || []));
+        renderNotificationsPanel(data.notifications || [], main);
     }
 
     // RBAC card (collapsible)
@@ -1299,6 +1504,7 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
         : filtered;
 
     const shown = searched.slice(0, 50); // files page shows all filtered results (not just 5)
+    const highlightId = callbacks && callbacks.highlightFileId ? String(callbacks.highlightFileId) : null;
     if (shown.length === 0) {
         container.innerHTML = `
           <div class="widget-empty">
@@ -1328,7 +1534,7 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
                     : '';
 
             return `
-              <div class="file-card">
+              <div class="file-card ${highlightId && String(file.id) === highlightId ? 'card-updated' : ''}">
                 <div class="file-card-icon">
                   ${fileTypeIcon(typeKey)}
                 </div>
@@ -1358,13 +1564,39 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
     container.querySelectorAll('[data-delete-file]').forEach((btn) => {
         btn.addEventListener('click', async () => {
             const fileId = btn.getAttribute('data-delete-file');
-            const ok = window.confirm('Delete this file?');
-            if (!ok) return;
-            try {
-                await apiDelete(`/api/files/${fileId}`);
-                if (typeof callbacks.onDelete === 'function') callbacks.onDelete(fileId);
-            } catch (e) {
-                showToast(String(e.message || 'Delete failed'), 'error');
+            const cardEl = btn.closest('.file-card');
+            const actionsEl = cardEl?.querySelector('.file-card-actions');
+            if (!actionsEl) return;
+
+            actionsEl.innerHTML = `
+              <span class="delete-confirm-text">Delete this file?</span>
+              <button class="btn btn-destructive btn-sm confirm-yes" type="button">Delete</button>
+              <button class="btn btn-ghost btn-sm confirm-no" type="button">Cancel</button>
+            `;
+
+            const confirmYes = actionsEl.querySelector('.confirm-yes');
+            const confirmNo = actionsEl.querySelector('.confirm-no');
+
+            if (confirmNo) {
+                confirmNo.addEventListener('click', () => {
+                    renderFileCards(container, files, tabKey, searchQuery, callbacks);
+                });
+            }
+
+            if (confirmYes) {
+                confirmYes.addEventListener('click', async () => {
+                    confirmYes.disabled = true;
+                    confirmYes.textContent = 'Deleting...';
+
+                    try {
+                        await apiDelete(`/api/files/${fileId}`);
+                        showToast('File deleted successfully.', 'success');
+                        if (typeof callbacks.onDelete === 'function') callbacks.onDelete(fileId);
+                    } catch (e) {
+                        showToast(String(e.message || 'Delete failed'), 'error');
+                        renderFileCards(container, files, tabKey, searchQuery, callbacks);
+                    }
+                });
             }
         });
     });
@@ -1394,6 +1626,8 @@ async function initFilesPage() {
     const action = params.get('action');
 
     const role = getCurrentUser().role;
+    const ROLE_DEFAULT_FILE_TYPE = { admin: 'recipe', staff: 'recipe', user: 'invoice' };
+    const roleDefaultType = ROLE_DEFAULT_FILE_TYPE[role] || 'recipe';
     const defaultType = role === 'admin' ? 'all' : role === 'staff' ? 'recipe' : 'invoice';
 
     const activeTab = getTabFromType(typeFilter) || defaultType;
@@ -1412,9 +1646,11 @@ async function initFilesPage() {
     let allFiles = await apiGet('/api/files').then((x) => (Array.isArray(x) ? x : []));
     allFiles = allFiles.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+    let uploadPanelOpen = action === 'upload';
+    let highlightFileId = null;
+
     function setActiveTab(tabKey) {
         currentTab = tabKey;
-        tabsEl.querySelectorAll('.filter-tab').forEach((t) => t.classList.toggle('active', t.getAttribute('data-tab') === tabKey));
         rerender();
     }
 
@@ -1426,22 +1662,47 @@ async function initFilesPage() {
         { key: 'schedule', label: 'Schedules' },
         { key: 'invoice', label: 'Invoices' }
     ];
-    tabsEl.innerHTML = tabs
-        .map(
-            (t) =>
-                `<button type="button" class="filter-tab ${t.key === currentTab ? 'active' : ''}" data-tab="${t.key}">${t.label}</button>`
-        )
-        .join('');
+
+    function refreshTabs() {
+        const counts = {
+            all: allFiles.length,
+            recipe: allFiles.filter((f) => f.file_type === 'recipe').length,
+            report: allFiles.filter((f) => f.file_type === 'report').length,
+            schedule: allFiles.filter((f) => f.file_type === 'schedule').length,
+            invoice: allFiles.filter((f) => f.file_type === 'invoice').length
+        };
+
+        tabsEl.innerHTML = tabs
+            .map((t) => {
+                const count = counts[t.key] || 0;
+                const badge = count > 0 ? `<span class="tab-badge">${count}</span>` : '';
+                return `<button type="button" class="filter-tab ${t.key === currentTab ? 'active' : ''}" data-tab="${t.key}">${t.label}${badge}</button>`;
+            })
+            .join('');
+    }
+
+    refreshTabs();
 
     function rerender() {
+        refreshTabs();
         renderFileCards(files, allFiles, currentTab, searchQuery, {
+            highlightFileId,
             onDelete: (deletedFileId) => {
                 allFiles = allFiles.filter((f) => String(f.id) !== String(deletedFileId));
                 rerender();
             },
             onVisibilityToggle: (fileId, nextIsPublic) => {
+                highlightFileId = fileId;
                 allFiles = allFiles.map((f) => (String(f.id) === String(fileId) ? { ...f, is_public: nextIsPublic ? 1 : 0 } : f));
                 rerender();
+                highlightFileId = null;
+
+                showToast(
+                    nextIsPublic
+                        ? 'File is now public — visible to all users.'
+                        : 'File is now private — only you can access it.',
+                    'success'
+                );
             }
         });
     }
@@ -1456,18 +1717,26 @@ async function initFilesPage() {
 
         // Update URL param without reloading
         const url = new URL(window.location.href);
-        url.searchParams.delete('action');
+        if (uploadPanelOpen) url.searchParams.set('action', 'upload');
+        else url.searchParams.delete('action');
         if (nextTab === 'all') url.searchParams.delete('type');
         else url.searchParams.set('type', nextTab);
         const qs = url.searchParams.toString();
         history.pushState({}, '', qs ? (url.pathname + '?' + qs) : url.pathname);
+        if (typeof setActiveNavItem === 'function') setActiveNavItem();
+
+        // Role-aware upload defaults: keep upload panel file type aligned to active tab
+        if (typeSelect) {
+            typeSelect.value = nextTab !== 'all' ? nextTab : roleDefaultType;
+        }
     });
 
     if (searchEl) {
-        searchEl.addEventListener('input', () => {
+        const handleSearch = debounce(function () {
             searchQuery = searchEl.value;
             rerender();
-        });
+        }, 200);
+        searchEl.addEventListener('input', handleSearch);
     }
 
     // Upload panel handling
@@ -1479,6 +1748,7 @@ async function initFilesPage() {
 
     function openUploadPanel() {
         if (!uploadPanel) return;
+        uploadPanelOpen = true;
         uploadPanel.classList.remove('collapsed');
         uploadPanel.classList.add('open');
         if (filenameInput) filenameInput.focus();
@@ -1488,6 +1758,7 @@ async function initFilesPage() {
 
     function closeUploadPanel() {
         if (!uploadPanel) return;
+        uploadPanelOpen = false;
         uploadPanel.classList.remove('open');
         uploadPanel.classList.add('collapsed');
     }
