@@ -256,8 +256,9 @@ function clearAllFieldErrors() {
 
     let seconds = 600; // fallback if reg_expires_at isn't present
     const regExpiresAt = sessionStorage.getItem('reg_expires_at');
+    const regExpiresAtMs = regExpiresAt ? new Date(regExpiresAt).getTime() : null;
     if (regExpiresAt) {
-        const msLeft = new Date(regExpiresAt).getTime() - Date.now();
+        const msLeft = regExpiresAtMs - Date.now();
         seconds = Math.max(0, Math.ceil(msLeft / 1000));
     }
 
@@ -344,7 +345,12 @@ function clearAllFieldErrors() {
     updateResendEnabled();
 
     const countdownInterval = setInterval(() => {
-        seconds = Math.max(0, seconds - 1);
+        if (regExpiresAtMs) {
+            const msLeft = regExpiresAtMs - Date.now();
+            seconds = Math.max(0, Math.ceil(msLeft / 1000));
+        } else {
+            seconds = Math.max(0, seconds - 1);
+        }
         updateTimerDisplay();
         updateVerifyEnabled();
         updateResendEnabled();
