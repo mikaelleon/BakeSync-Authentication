@@ -7,6 +7,7 @@ function normalizeDbHost(rawHost) {
     if (!rawHost) return rawHost;
 
     let host = String(rawHost).trim();
+    const original = host;
 
     // Allow URLs like mysql://host:port or host:port
     // (We only extract host; DB_PORT is already handled separately.)
@@ -21,6 +22,14 @@ function normalizeDbHost(rawHost) {
     // Common typo seen in deployments: "bakesync-bakesync.a.aivencloud.com"
     // -> "bakesync.a.aivencloud.com"
     host = host.replace(/^bakesync-bakesync\./i, 'bakesync.');
+
+    // Common Aiven hostname typo: extra ".a" segment.
+    // Example: "foo.a.aivencloud.com" -> "foo.aivencloud.com"
+    host = host.replace(/\.a\.aivencloud\.com$/i, '.aivencloud.com');
+
+    if (original !== host) {
+        console.log('DB host normalized:', original, '->', host);
+    }
 
     return host;
 }
@@ -68,7 +77,8 @@ const dbConfig = {
 if (!dbConfig.host) {
     console.warn('DB_HOST is not set; MySQL connection will fail.');
 } else {
-    console.log('DB host:', dbConfig.host);
+    console.log('DB host used:', dbConfig.host);
+    if (process.env.DB_HOST) console.log('DB_HOST raw:', process.env.DB_HOST);
 }
 
 // Add SSL configuration for Aiven (production)
