@@ -7,233 +7,38 @@
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-<<<<<<< HEAD
     <div class="app-layout">
         <aside class="sidebar" id="sidebar"></aside>
         <div class="main-content" id="main-content">
-            <div class="app-topbar">
-                <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar">☰</button>
-                <div class="topbar-title">BakeSync · Dashboard</div>
-                <div class="topbar-actions">
-                    <button class="btn btn-outline btn-sm" type="button" onclick="loadUserDashboard()">Refresh</button>
-                    <a class="btn btn-outline btn-sm" href="profile.html">Settings</a>
+            <header class="topbar">
+                <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar"></button>
+                <div class="topbar-right">
+                    <span class="topbar-username" id="topbar-username"></span>
+                    <span class="topbar-role-badge" id="topbar-role-badge"></span>
+                    <button class="btn btn-ghost btn-sm topbar-logout" id="topbar-logout" type="button">Sign Out</button>
                 </div>
-=======
-    <nav class="navbar">
-        <div class="navbar-brand">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);">
-                <path d="m4.6 13.11 5.79-3.21c1.89-1.05 4.79 1.78 3.71 3.71l-3.22 5.81C8.8 23.16.79 15.23 4.6 13.11Z"/>
-                <path d="m10.5 9.5-1-2.29C9.2 6.48 8.8 6 8 6H4.5C2.79 6 2 6.5 2 8.5a7.71 7.71 0 0 0 2 4.83"/>
-                <path d="M8 6c0-1.55.24-4-2-4-2 0-2.5 2.17-2.5 4"/>
-                <path d="m14.5 13.5 2.29 1c.73.3 1.21.7 1.21 1.5v3.5c0 1.71-.5 2.5-2.5 2.5a7.71 7.71 0 0 1-4.83-2"/>
-                <path d="M18 16c1.55 0 4-.24 4 2 0 2-2.17 2.5-4 2.5"/>
-            </svg>
-            <h1>BakeSync</h1>
-        </div>
-        <div class="navbar-user">
-            <span id="navbar-username"></span>
-            <span id="navbar-role" class="badge"></span>
-            <button id="logout-btn" class="btn btn-outline btn-sm">Logout</button>
-        </div>
-    </nav>
+            </header>
 
-    <div class="dashboard-container">
-        <div class="dashboard-header">
-            <h2>Cashier Dashboard</h2>
-            <p>Your orders and notifications.</p>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Orders Today</h3>
-                <div class="value" id="stat-orders">-</div>
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
-            </div>
-        </div>
-
-        <div class="content-card">
-            <h3>Notifications</h3>
-            <ul id="notification-list" class="notification-list">
-                <li class="loading">
-                    <div class="spinner"></div>
-                </li>
-            </ul>
-        </div>
-
-<<<<<<< HEAD
-                <div class="kpi-row kpi-row-3">
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <span class="kpi-label">My Invoices</span>
-                            <div class="kpi-icon-wrapper"><span class="kpi-icon" aria-hidden="true">🧾</span></div>
-                        </div>
-                        <div class="kpi-card-value" id="kpi-my-invoices">-</div>
-                        <div class="kpi-card-footer"><span class="kpi-trend up" id="kpi-my-invoices-trend">-</span></div>
-                    </div>
-
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <span class="kpi-label">My Reports</span>
-                            <div class="kpi-icon-wrapper"><span class="kpi-icon" aria-hidden="true">📊</span></div>
-                        </div>
-                        <div class="kpi-card-value" id="kpi-my-reports">-</div>
-                        <div class="kpi-card-footer"><span class="kpi-trend up" id="kpi-my-reports-trend">-</span></div>
-                    </div>
-
-                    <div class="kpi-card">
-                        <div class="kpi-card-header">
-                            <span class="kpi-label">Shared Documents</span>
-                            <div class="kpi-icon-wrapper"><span class="kpi-icon" aria-hidden="true">🔗</span></div>
-                        </div>
-                        <div class="kpi-card-value" id="kpi-shared-docs">-</div>
-                        <div class="kpi-card-footer"><span class="kpi-trend up" id="kpi-shared-docs-trend">-</span></div>
-                    </div>
-                </div>
-
-                <div class="dash-tabs" role="tablist" aria-label="Dashboard views">
-                    <button class="dash-tab active" type="button">Overview</button>
-                    <a class="dash-tab" href="pos.html">Sales</a>
-                    <a class="dash-tab" href="inventory.html">Inventory</a>
-                    <button class="dash-tab" type="button" disabled>
-                        Notifications <span class="dash-tab-badge">2</span>
-                    </button>
-                    <button class="dash-tab" type="button" disabled>Activity</button>
-                    <button class="dash-tab" type="button" disabled>Team</button>
-                    <a class="dash-tab" href="files.html">Docs</a>
-                </div>
-
-                <div class="content-card">
-                    <h3>Quick Actions</h3>
-                    <div class="file-actions">
-                        <a href="pos.html" class="btn btn-outline">New Sale</a>
-                        <a href="pos.html" class="btn btn-outline">View Products</a>
-                        <a href="inventory.html" class="btn btn-outline">Check Inventory</a>
-                        <a href="files.html" class="btn btn-outline">Open Documents</a>
-                    </div>
-                </div>
-
-                <div class="content-card">
-                    <h3>Notifications</h3>
-                    <ul id="notification-list" class="notification-list">
-                        <li class="loading">
-                            <div class="spinner"></div>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="content-card docmgr" id="dashboard-docmgr">
-                    <div class="docmgr-header">
-                        <div class="docmgr-title">
-                            <h3>Document Manager</h3>
-                            <p>Your files and shared documents</p>
-                        </div>
-                        <div class="docmgr-actions">
-                            <a class="docmgr-link" href="files.html?type=invoice">View All →</a>
-                            <button class="btn btn-primary btn-sm" type="button" id="docmgr-upload-btn">+ Add Invoice</button>
-                        </div>
-                    </div>
-
-                    <div class="file-type-tabs" id="docmgr-tabs" role="tablist" aria-label="File type filters"></div>
-
-                    <div style="margin-bottom: 0.5rem; color: var(--muted-foreground); font-size: 0.875rem;">
-                        <strong id="docmgr-count">-</strong>
-                    </div>
-
-                    <div class="docmgr-list" id="docmgr-list"></div>
-                    <div id="docmgr-empty" style="display:none;"></div>
-
-                    <div class="docmgr-upload collapsed" id="docmgr-upload-panel">
-                        <div class="docmgr-upload-btn" style="background: transparent; border-bottom: 1px solid var(--border);">
-                            <span style="font-weight:700;">Add a new document</span>
-                            <a href="#" class="btn btn-outline btn-sm" id="docmgr-upload-cancel" style="margin-left:auto;">Cancel</a>
-                        </div>
-                        <div class="docmgr-upload-panel">
-                            <form id="docmgr-upload-form">
-                                <div class="docmgr-upload-form-grid">
-                                    <div class="form-group">
-                                        <label for="docmgr-filename">Filename</label>
-                                        <input type="text" id="docmgr-filename" placeholder="e.g., invoice_receipt_march.pdf" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="docmgr-type">File Type</label>
-                                        <select id="docmgr-type">
-                                            <option value="recipe">Recipe</option>
-                                            <option value="report">Report</option>
-                                            <option value="schedule">Schedule</option>
-                                            <option value="invoice">Invoice</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="form-group" style="margin-top: 0.75rem;">
-                                    <label for="docmgr-description">Description</label>
-                                    <textarea id="docmgr-description" rows="2" placeholder="Optional description"></textarea>
-                                </div>
-
-                                <div class="docmgr-upload-actions">
-                                    <label class="checkbox-wrapper" style="display:flex; align-items:center; gap:0.5rem; margin-right:auto;">
-                                        <input type="checkbox" id="docmgr-is-public">
-                                        <span>Make file public</span>
-                                    </label>
-                                    <button type="submit" class="btn btn-primary">Upload</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-=======
-        <div class="content-card">
-            <h3>Document Manager (Preview)</h3>
-            <p class="text-sm text-muted" style="margin-bottom: 1rem;">
-                Showing the files you can access (DAC enforced by backend).
-            </p>
-            <div style="margin-bottom: 0.75rem;">
-                <strong id="recent-files-count">-</strong>
-            </div>
-            <ul id="recent-files-list" class="activity-list">
-                <li class="loading">
-                    <div class="spinner"></div>
-                </li>
-            </ul>
-            <div style="margin-top: 1rem;">
-                <a href="files.html" class="btn btn-primary">Open File Manager</a>
-            </div>
-        </div>
-
-        <div class="content-card">
-            <h3>Quick Actions</h3>
-            <div class="file-actions">
-                <a href="pos.html" class="btn btn-primary">Point of Sale</a>
-                <a href="files.html" class="btn btn-outline">My Files</a>
-                <a href="inventory.html" class="btn btn-outline">Inventory</a>
-                <a href="profile.html" class="btn btn-outline">Profile</a>
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
-            </div>
-        </div>
-    </div>
-
-    <!-- File Details Modal (shared with files.html) -->
-    <div id="file-modal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="modal-title">File Details</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
-            </div>
-            <div id="modal-body" class="modal-body"></div>
+            <main class="page-content" id="page-content"></main>
         </div>
     </div>
 
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
     <script src="../js/dashboard.js"></script>
-<<<<<<< HEAD
-    <script src="../js/files.js"></script>
     <script src="../js/sidebar.js"></script>
-=======
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
     <script>
+        const user = getCurrentUser();
+        const usernameEl = document.getElementById('topbar-username');
+        const roleEl = document.getElementById('topbar-role-badge');
+        const logoutBtn = document.getElementById('topbar-logout');
+        if (usernameEl) usernameEl.textContent = user.username || '';
+        if (roleEl) roleEl.textContent = getRoleDisplayName(user.role);
+        if (logoutBtn) logoutBtn.addEventListener('click', logout);
+
         initSidebar();
         setActiveNavItem();
+        initMobileSidebar();
         loadUserDashboard();
     </script>
 </body>

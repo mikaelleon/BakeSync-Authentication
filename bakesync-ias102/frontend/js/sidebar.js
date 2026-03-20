@@ -1,362 +1,430 @@
-// BakeSync IAS102 Sidebar (vanilla JS, collapsible + mobile overlay)
+// BakeSync IAS102 - Shared sticky/collapsible sidebar utility (static frontend)
+// Imported via <script src="../js/sidebar.js"></script> in every dashboard + files.html.
 
-const SIDEBAR_COLLAPSED_KEY = "bakesync_sidebar_collapsed";
+const SIDEBAR_COLLAPSED_KEY = 'bakesync_sidebar_collapsed';
 
-function roleDotColor(role) {
-    if (role === "admin") return "var(--success)";
-    if (role === "staff") return "#3b82f6";
-    return "var(--warning)";
+function roleColorVar(role) {
+  // Keep the role colors aligned with style.css tokens.
+  if (role === 'admin') return 'var(--role-admin)';
+  if (role === 'staff') return 'var(--role-staff)';
+  return 'var(--role-user)';
 }
 
-function getSidebarNav(role) {
-    const typeLinks = (type) => `files.html?type=${encodeURIComponent(type)}`;
+function getSidebarNavByRole(role) {
+  // The spec wants explicit items + filtering params for files.html.
+  const managerItems = [
+    { label: 'Dashboard', href: 'dashboard-admin.html' },
+    { label: 'Document Manager', href: 'files.html', primary: true },
+    { label: 'Recipes', href: 'files.html?type=recipe', fileType: 'recipe' },
+    { label: 'Reports', href: 'files.html?type=report', fileType: 'report' },
+    { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule' },
+    { label: 'Invoices', href: 'files.html?type=invoice', fileType: 'invoice' },
+    { divider: true },
+    { label: 'System Overview', href: null, visualOnly: true },
+    { label: 'User Activity', href: null, visualOnly: true }
+  ];
 
-    if (role === "admin") {
-        return [
-            { label: "Dashboard", href: "dashboard-admin.html", icon: "🏠", activeId: "dashboard" },
-            { label: "Document Manager", href: "files.html", icon: "📁", activeId: "docs" },
-            { label: "Recipes", href: typeLinks("recipe"), icon: "📘", activeId: "docs-recipe" },
-            { label: "Reports", href: typeLinks("report"), icon: "📊", activeId: "docs-report" },
-            { label: "Schedules", href: typeLinks("schedule"), icon: "🗓️", activeId: "docs-schedule" },
-            { label: "Invoices", href: typeLinks("invoice"), icon: "🧾", activeId: "docs-invoice" },
-            { divider: true },
-            { label: "System Overview", href: null, icon: "🧠", activeId: "visual-only" },
-            { label: "User Activity", href: null, icon: "👥", activeId: "visual-only-2" },
-        ];
-    }
+  const bakerItems = [
+    { label: 'Dashboard', href: 'dashboard-staff.html' },
+    { label: 'Document Manager', href: 'files.html', primary: true },
+    { label: 'My Recipes', href: 'files.html?type=recipe', fileType: 'recipe' },
+    { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule' },
+    { label: 'Production Log', href: null, visualOnly: true },
+    { divider: true },
+    { label: 'Raw Materials', href: null, visualOnly: true }
+  ];
 
-    if (role === "staff") {
-        return [
-            { label: "Dashboard", href: "dashboard-staff.html", icon: "🏠", activeId: "dashboard" },
-            { label: "Document Manager", href: "files.html", icon: "📁", activeId: "docs" },
-            { label: "My Recipes", href: typeLinks("recipe"), icon: "📘", activeId: "docs-recipe" },
-            { label: "Schedules", href: typeLinks("schedule"), icon: "🗓️", activeId: "docs-schedule" },
-            { label: "Production Log", href: null, icon: "🏭", activeId: "visual-only" },
-            { divider: true },
-            { label: "Raw Materials", href: null, icon: "🧂", activeId: "visual-only-2" },
-        ];
-    }
+  const cashierItems = [
+    { label: 'Dashboard', href: 'dashboard-user.html' },
+    { label: 'Document Manager', href: 'files.html', primary: true },
+    { label: 'My Invoices', href: 'files.html?type=invoice', fileType: 'invoice' },
+    { label: 'Reports', href: 'files.html?type=report', fileType: 'report' },
+    { divider: true },
+    { label: 'Point of Sale', href: null, visualOnly: true }
+  ];
 
-    // user / cashier
-    return [
-        { label: "Dashboard", href: "dashboard-user.html", icon: "🏠", activeId: "dashboard" },
-        { label: "Document Manager", href: "files.html", icon: "📁", activeId: "docs" },
-        { label: "My Invoices", href: typeLinks("invoice"), icon: "🧾", activeId: "docs-invoice" },
-        { label: "Reports", href: typeLinks("report"), icon: "📊", activeId: "docs-report" },
-        { divider: true },
-        { label: "Point of Sale", href: null, icon: "🛒", activeId: "visual-only" },
-    ];
+  if (role === 'admin') return managerItems;
+  if (role === 'staff') return bakerItems;
+  return cashierItems;
 }
 
-function buildSidebarHTML() {
-    const user = getCurrentUser();
-    const role = user.role;
+function iconSvg(name, colorClass = '') {
+  // Minimal inline SVG set (24px) to match the sidebar icon expectations.
+  // Note: this is static/vanilla; no external icon libraries.
+  const common = `width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="${colorClass}`.trim();
+  switch (name) {
+    case 'dashboard':
+      return `<svg ${common}><path d="M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6Zm10-10h8V3h-8v8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    case 'files':
+      return `<svg ${common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    case 'book-open':
+      return `<svg ${common}><path d="M4 19a2 2 0 0 0 2 2h2V5H6a2 2 0 0 0-2 2v12Z" stroke="currentColor" stroke-width="1.8"/><path d="M12 5a4 4 0 0 1 4-4h4v18h-4a4 4 0 0 0-4 4V5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    case 'bar-chart':
+      return `<svg ${common}><path d="M4 20V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M10 20V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 20v-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M22 20H2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+    case 'calendar':
+      return `<svg ${common}><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    case 'file-text':
+      return `<svg ${common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+    case 'chevron-left':
+      return `<svg ${common}><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    case 'chevron-right':
+      return `<svg ${common}><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    case 'log-out':
+      return `<svg ${common}><path d="M10 17l-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 3h-4a2 2 0 0 0-2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 21h-4a2 2 0 0 1-2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    default:
+      return `<svg ${common}><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/></svg>`;
+  }
+}
 
-    const navItems = getSidebarNav(role);
-    const initials = (user.username || "U").slice(0, 1).toUpperCase();
+function labelToIconKey(label) {
+  const l = String(label || '').toLowerCase();
+  if (l.includes('dashboard')) return 'dashboard';
+  if (l.includes('document')) return 'files';
+  if (l.includes('recipe')) return 'book-open';
+  if (l.includes('report')) return 'bar-chart';
+  if (l.includes('schedule')) return 'calendar';
+  if (l.includes('invoice')) return 'file-text';
+  if (l.includes('point of sale')) return 'file-text';
+  return 'files';
+}
 
-    const itemsHTML = navItems
-        .map((item) => {
-            if (item.divider) {
-                return `<div class="sidebar-divider" aria-hidden="true"></div>`;
-            }
+function getSidebarElements() {
+  const sidebar = document.getElementById('sidebar') || document.getElementById('app-sidebar');
+  const mainContent =
+    document.getElementById('main-content') ||
+    document.querySelector('.main-content') ||
+    document.querySelector('.app-main') ||
+    null;
+  return { sidebar, mainContent };
+}
 
-            const href = item.href || "#";
-            const isDisabled = !item.href;
+function currentIsMobile() {
+  return window.innerWidth < 768;
+}
 
-            return `
-              <a
-                class="sidebar-nav-item"
-                href="${href}"
-                ${isDisabled ? "aria-disabled=true tabindex=-1 onclick='return false;'" : ""}
-                data-nav-id="${item.activeId}"
-                data-nav-label="${item.label}"
-              >
-                <span class="sidebar-nav-icon" aria-hidden="true">${item.icon}</span>
-                <span class="sidebar-nav-label">${item.label}</span>
-              </a>
-            `;
-        })
-        .join("");
+function getToggleButton() {
+  return document.getElementById('sidebar-toggle-btn');
+}
 
-    return `
+function applySidebarCollapsedState(collapsed) {
+  const { sidebar, mainContent } = getSidebarElements();
+  if (!sidebar || !mainContent) return;
+
+  if (collapsed) {
+    sidebar.classList.add('collapsed');
+    mainContent.classList.add('sidebar-collapsed');
+  } else {
+    sidebar.classList.remove('collapsed');
+    mainContent.classList.remove('sidebar-collapsed');
+  }
+}
+
+function setToggleIcon(collapsed) {
+  const btn = getToggleButton();
+  if (!btn) return;
+  // Expanded: show chevron-left (click collapses). Collapsed: show chevron-right (click expands).
+  const collapsedIcon = iconSvg('chevron-right');
+  const expandedIcon = iconSvg('chevron-left');
+  btn.innerHTML = collapsed ? collapsedIcon : expandedIcon;
+}
+
+function renderSidebarContent() {
+  const { sidebar } = getSidebarElements();
+  if (!sidebar) return;
+  const user = getCurrentUser();
+  if (!user || !user.role) return;
+
+  const navItems = getSidebarNavByRole(user.role);
+  const role = user.role;
+  const username = user.username || 'User';
+
+  sidebar.innerHTML = `
+    <div class="sidebar-inner">
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          <span class="sidebar-logo-mark" aria-hidden="true">🥐</span>
-          <span class="sidebar-logo-wordmark">BakeSync</span>
+          <div class="sidebar-logo-mark" aria-hidden="true">🥐</div>
+          <div class="sidebar-logo-wordmark">
+            <div class="sidebar-logo-title">BakeSync</div>
+            <div class="sidebar-logo-subtitle">Bakery ERP</div>
+          </div>
         </div>
-        <button class="sidebar-collapse-btn" type="button" id="sidebar-collapse-btn" aria-label="Toggle sidebar">
-          <span class="sidebar-collapse-icon" aria-hidden="true">⟨</span>
+
+        <button class="sidebar-collapse-toggle" type="button" id="sidebar-toggle-btn" aria-label="Toggle sidebar">
+          ${iconSvg('chevron-right')}
         </button>
       </div>
 
-      <div class="sidebar-body" role="navigation" aria-label="Primary">
-        ${itemsHTML}
-      </div>
+      <nav class="sidebar-nav">
+        ${navItems
+          .map((item) => {
+            if (item.divider) return `<div class="sidebar-divider"></div>`;
+            if (item.visualOnly) {
+              return `
+                <div class="sidebar-link sidebar-link-visual" data-visual="true">
+                  <span class="sidebar-link-icon" aria-hidden="true">${iconSvg(labelToIconKey(item.label))}</span>
+                  <span class="sidebar-link-text">${item.label}</span>
+                </div>
+              `;
+            }
+
+            const iconKey = labelToIconKey(item.label);
+            const fileType = item.fileType ? `data-file-type="${item.fileType}"` : '';
+            return `
+              <a class="sidebar-link" href="${item.href}" ${fileType}>
+                <span class="sidebar-link-icon" aria-hidden="true">${iconSvg(iconKey)}</span>
+                <span class="sidebar-link-text">${item.label}</span>
+              </a>
+            `;
+          })
+          .join('')}
+      </nav>
 
       <div class="sidebar-footer">
         <div class="sidebar-user-card">
-          <div class="sidebar-avatar" aria-hidden="true">${initials}</div>
+          <div class="sidebar-avatar" style="background:${roleColorVar(role)}">${String(username).slice(0, 1).toUpperCase()}</div>
           <div class="sidebar-user-meta">
-            <div class="sidebar-user-name">${user.username || "User"}</div>
+            <div class="sidebar-user-name">${username}</div>
             <div class="sidebar-user-role">
-              <span class="sidebar-user-role-text">${getRoleDisplayName(role)}</span>
-              <span class="sidebar-user-role-dot" style="background:${roleDotColor(role)}"></span>
+              <span class="sidebar-role-text">${getRoleDisplayName(role)}</span>
+              <span class="sidebar-role-dot" style="background:${roleColorVar(role)}"></span>
             </div>
           </div>
         </div>
 
-        <button class="sidebar-signout" type="button" id="sidebar-signout-btn" aria-label="Sign out">
-          <span class="sidebar-signout-icon" aria-hidden="true">⎋</span>
-          <span class="sidebar-signout-label">Sign Out</span>
+        <button class="sidebar-signout" type="button" id="sidebar-signout-btn">
+          <span class="sidebar-signout-icon" aria-hidden="true">${iconSvg('log-out')}</span>
+          <span class="sidebar-signout-text">Sign Out</span>
         </button>
       </div>
-    `;
-}
+    </div>
+  `;
 
-function getSidebarEl() {
-    return document.getElementById("sidebar") || document.querySelector(".sidebar");
-}
+  const signout = document.getElementById('sidebar-signout-btn');
+  if (signout) signout.addEventListener('click', logout);
 
-function getMainContentEl() {
-    return document.getElementById("main-content") || document.querySelector(".main-content");
-}
-
-function isMobileViewport() {
-    return typeof window !== "undefined" ? window.matchMedia("(max-width: 768px)").matches : false;
-}
-
-function applyCollapsedState(collapsed) {
-    const sidebarEl = getSidebarEl();
-    const mainEl = getMainContentEl();
-    if (!sidebarEl || !mainEl) return;
-
-    // On mobile we always keep expanded overlay behavior.
-    if (isMobileViewport()) return;
-
-    if (collapsed) {
-        sidebarEl.classList.add("collapsed");
-        mainEl.classList.add("sidebar-collapsed");
-        sidebarEl.setAttribute("data-collapsed", "true");
-    } else {
-        sidebarEl.classList.remove("collapsed");
-        mainEl.classList.remove("sidebar-collapsed");
-        sidebarEl.setAttribute("data-collapsed", "false");
-    }
-}
-
-function updateToggleIcon(collapsed) {
-    const sidebarEl = getSidebarEl();
-    if (!sidebarEl) return;
-    const btn = sidebarEl.querySelector("#sidebar-collapse-btn");
-    const icon = sidebarEl.querySelector(".sidebar-collapse-icon");
-    if (!btn || !icon) return;
-    // If collapsed -> chevron-right (pointing right). Else chevron-left.
-    icon.textContent = collapsed ? "⟩" : "⟨";
-}
-
-function hideLabelsDuringCollapse(hide) {
-    const sidebarEl = getSidebarEl();
-    if (!sidebarEl) return;
-    sidebarEl.classList.toggle("labels-hidden", !!hide);
-}
-
-function setActiveNavItem() {
-    const sidebarEl = getSidebarEl();
-    if (!sidebarEl) return;
-
-    const pathname = (window.location.pathname || "").split("/").pop() || "";
-    const params = new URLSearchParams(window.location.search);
-    const type = params.get("type");
-
-    const allNav = Array.from(sidebarEl.querySelectorAll(".sidebar-nav-item"));
-    allNav.forEach((a) => a.classList.remove("active"));
-
-    // If on files page, match by ?type (or All)
-    if (pathname === "files.html") {
-        const effectiveType = type || "all";
-        const navIdByType = {
-            all: "docs",
-            recipe: "docs-recipe",
-            report: "docs-report",
-            schedule: "docs-schedule",
-            invoice: "docs-invoice",
-        };
-        const activeId = navIdByType[effectiveType] || "docs";
-        const match = sidebarEl.querySelector(`.sidebar-nav-item[data-nav-id="${activeId}"]`);
-        if (match) match.classList.add("active");
-        return;
-    }
-
-    // Otherwise compare dashboard routes
-    const idByPage = {
-        "dashboard-admin.html": "dashboard",
-        "dashboard-staff.html": "dashboard",
-        "dashboard-user.html": "dashboard",
-    };
-
-    const activeId = idByPage[pathname] || null;
-    if (!activeId) return;
-    const match = sidebarEl.querySelector(`.sidebar-nav-item[data-nav-id="${activeId}"]`);
-    if (match) match.classList.add("active");
+  const toggleBtn = getToggleButton();
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', toggleSidebar);
+  }
 }
 
 function initTooltips() {
-    const sidebarEl = getSidebarEl();
-    if (!sidebarEl) return;
+  const { sidebar } = getSidebarElements();
+  if (!sidebar) return;
 
-    let tooltipEl = null;
+  const tooltipId = 'sidebar-tooltip';
+  let tooltipEl = document.getElementById(tooltipId);
 
-    const ensureTooltip = () => {
-        if (tooltipEl) return tooltipEl;
-        tooltipEl = document.createElement("div");
-        tooltipEl.className = "sidebar-tooltip";
-        tooltipEl.style.display = "none";
-        document.body.appendChild(tooltipEl);
-        return tooltipEl;
-    };
+  function ensureTooltip() {
+    if (tooltipEl) return tooltipEl;
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = tooltipId;
+    tooltipEl.className = 'sidebar-tooltip';
+    document.body.appendChild(tooltipEl);
+    return tooltipEl;
+  }
 
-    const navItems = Array.from(sidebarEl.querySelectorAll(".sidebar-nav-item[data-nav-label]"));
-    navItems.forEach((item) => {
-        item.addEventListener("mouseenter", (e) => {
-            if (!sidebarEl.classList.contains("collapsed") || isMobileViewport()) return;
-            const label = item.getAttribute("data-nav-label") || "";
-            const t = ensureTooltip();
-            t.textContent = label;
-            t.style.display = "block";
+  const navLinks = sidebar.querySelectorAll('.sidebar-link[data-visual="true"]');
+  // Tooltips only apply to real links (not divider/visual placeholders).
+  const clickableLinks = sidebar.querySelectorAll('.sidebar-link:not([data-visual="true"])');
 
-            const rect = item.getBoundingClientRect();
-            // Left of tooltip should align with right edge of collapsed sidebar.
-            t.style.left = `${Math.min(rect.right + 8, window.innerWidth - 200)}px`;
-            t.style.top = `${Math.max(rect.top, 16)}px`;
-            item.classList.add("tooltip-active");
-        });
-
-        item.addEventListener("mouseleave", () => {
-            if (!sidebarEl.classList.contains("collapsed") || isMobileViewport()) return;
-            if (tooltipEl) tooltipEl.style.display = "none";
-        });
+  clickableLinks.forEach((a) => {
+    const label = (a.querySelector('.sidebar-link-text')?.textContent || '').trim();
+    a.addEventListener('mouseenter', (e) => {
+      if (!sidebar.classList.contains('collapsed') || currentIsMobile()) return;
+      const tip = ensureTooltip();
+      tip.textContent = label;
+      const rect = a.getBoundingClientRect();
+      tip.style.top = `${rect.top + window.scrollY}px`;
+      tip.style.left = `${rect.left + window.scrollX + 72}px`;
+      tip.style.display = 'block';
+      tip.style.visibility = 'visible';
     });
+    a.addEventListener('mouseleave', () => {
+      if (!sidebar.classList.contains('collapsed') || currentIsMobile()) return;
+      const tip = ensureTooltip();
+      tip.style.display = 'none';
+      tip.style.visibility = 'hidden';
+    });
+  });
+
+  // Cleanup helper to hide tooltip on scroll.
+  window.addEventListener('scroll', () => {
+    if (tooltipEl) {
+      tooltipEl.style.display = 'none';
+      tooltipEl.style.visibility = 'hidden';
+    }
+  });
+}
+
+function setActiveNavItem() {
+  const { sidebar } = getSidebarElements();
+  if (!sidebar) return;
+
+  const pathname = window.location.pathname || '';
+  const params = new URLSearchParams(window.location.search || '');
+  const typeParam = params.get('type');
+
+  // Clear active styles
+  sidebar.querySelectorAll('.sidebar-link.active').forEach((el) => el.classList.remove('active'));
+
+  const links = sidebar.querySelectorAll('.sidebar-link[href]');
+  links.forEach((a) => {
+    const href = a.getAttribute('href') || '';
+    const anchorPath = href.split('?')[0];
+    const isFilesPage = anchorPath.endsWith('files.html');
+
+    let isActive = false;
+    if (isFilesPage && pathname.endsWith('files.html')) {
+      const itemType = a.getAttribute('data-file-type');
+      // If the base Document Manager has no fileType, treat it as "All"
+      if (!itemType) {
+        isActive = !typeParam;
+      } else {
+        isActive = String(itemType) === String(typeParam);
+      }
+    } else {
+      isActive = pathname.endsWith(anchorPath);
+    }
+
+    if (isActive) a.classList.add('active');
+  });
 }
 
 function toggleSidebar() {
-    const sidebarEl = getSidebarEl();
-    const mainEl = getMainContentEl();
-    if (!sidebarEl || !mainEl) return;
+  const { sidebar, mainContent } = getSidebarElements();
+  if (!sidebar || !mainContent) return;
 
-    if (isMobileViewport()) return; // don't apply collapsed mode on mobile
+  // On mobile, sidebar overlay behavior is controlled by initMobileSidebar.
+  if (currentIsMobile()) return;
 
-    const willCollapse = !sidebarEl.classList.contains("collapsed");
-    // Collapse: hide labels during transition.
-    if (willCollapse) hideLabelsDuringCollapse(true);
+  const next = !sidebar.classList.contains('collapsed');
+  // Hide labels during transition to satisfy the spec.
+  sidebar.classList.add('label-transition');
 
-    applyCollapsedState(willCollapse);
-    updateToggleIcon(willCollapse);
+  applySidebarCollapsedState(next);
+  setToggleIcon(next);
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
 
-    // Persist
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, willCollapse ? "true" : "false");
-
-    if (!willCollapse) {
-        // Expand: show labels after width transition ends.
-        setTimeout(() => hideLabelsDuringCollapse(false), 250);
-    }
-
-    setActiveNavItem();
+  // After collapse/expand transition, reveal labels (expand only).
+  window.setTimeout(() => {
+    sidebar.classList.remove('label-transition');
+  }, 250);
 }
 
 function initSidebar() {
-    if (!requireAuth()) return;
+  if (!requireAuth()) return;
+  const { sidebar, mainContent } = getSidebarElements();
+  if (!sidebar || !mainContent) return;
 
-    // Render sidebar once if empty.
-    const sidebarEl = getSidebarEl();
-    if (!sidebarEl) return;
-    if (!sidebarEl.dataset.bakesyncRendered) {
-        sidebarEl.innerHTML = buildSidebarHTML();
-        sidebarEl.dataset.bakesyncRendered = "true";
-    }
+  sidebar.classList.add('sidebar');
+  // Only mark the new shell main region when it's actually present.
+  if (mainContent.id === 'main-content') mainContent.classList.add('main-content');
 
-    // Restore collapsed state
-    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    const collapsed = saved === "true";
+  renderSidebarContent();
 
-    applyCollapsedState(collapsed);
-    updateToggleIcon(collapsed);
-    hideLabelsDuringCollapse(collapsed);
+  // Ensure we have correct collapsed defaults for the viewport.
+  const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  const shouldCollapse = saved && !currentIsMobile();
+  applySidebarCollapsedState(shouldCollapse);
+  setToggleIcon(shouldCollapse);
 
-    const collapseBtn = sidebarEl.querySelector("#sidebar-collapse-btn");
-    if (collapseBtn) collapseBtn.addEventListener("click", toggleSidebar);
+  initTooltips();
 
-    const signoutBtn = sidebarEl.querySelector("#sidebar-signout-btn");
-    if (signoutBtn) signoutBtn.addEventListener("click", logout);
+  // Sign out / toggle handler already attached in render.
 
-    initTooltips();
-    setActiveNavItem();
-
-    window.addEventListener("popstate", setActiveNavItem);
+  window.__bakesyncSidebarInitialized = true;
 }
 
 function initMobileSidebar() {
-    if (!requireAuth()) return;
+  const { sidebar, mainContent } = getSidebarElements();
+  if (!sidebar || !mainContent) return;
 
-    const sidebarEl = getSidebarEl();
-    if (!sidebarEl) return;
+  function getOrCreateHamburger() {
+    const topbar = document.querySelector('.topbar') || document.querySelector('.app-topbar');
+    if (!topbar) return null;
+    let btn = document.getElementById('hamburger');
+    if (btn) return btn;
 
-    let overlayEl = document.getElementById("sidebar-overlay");
-    if (!overlayEl) {
-        overlayEl = document.createElement("div");
-        overlayEl.id = "sidebar-overlay";
-        overlayEl.className = "sidebar-overlay";
-        document.body.appendChild(overlayEl);
-        overlayEl.addEventListener("click", closeMobileSidebar);
+    btn = document.createElement('button');
+    btn.id = 'hamburger';
+    btn.className = 'hamburger';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Open sidebar');
+    btn.innerHTML = `<span class="hamburger-lines" aria-hidden="true">☰</span>`;
+    topbar.insertBefore(btn, topbar.firstChild);
+    return btn;
+  }
+
+  const btn = getOrCreateHamburger();
+  if (!btn) return;
+
+  let overlayEl = null;
+
+  function ensureOverlay() {
+    if (overlayEl) return overlayEl;
+    overlayEl = document.createElement('div');
+    overlayEl.id = 'sidebar-overlay';
+    overlayEl.className = 'sidebar-overlay';
+    document.body.appendChild(overlayEl);
+    overlayEl.addEventListener('click', () => closeMobileSidebar());
+    return overlayEl;
+  }
+
+  function openMobileSidebar() {
+    if (!currentIsMobile()) return;
+    ensureOverlay();
+    sidebar.classList.add('mobile-open');
+    overlayEl.classList.add('visible');
+  }
+
+  function closeMobileSidebar() {
+    if (!currentIsMobile()) return;
+    sidebar.classList.remove('mobile-open');
+    if (overlayEl) overlayEl.classList.remove('visible');
+  }
+
+  btn.addEventListener('click', () => {
+    if (!currentIsMobile()) return;
+    if (sidebar.classList.contains('mobile-open')) closeMobileSidebar();
+    else openMobileSidebar();
+  });
+
+  // Resize handling: disable overlay + icon-only collapse on wider screens.
+  window.addEventListener('resize', () => {
+    if (!currentIsMobile()) {
+      if (overlayEl) overlayEl.classList.remove('visible');
+      sidebar.classList.remove('mobile-open');
+
+      // Restore the persisted collapsed state (non-mobile).
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+      applySidebarCollapsedState(saved);
+      setToggleIcon(saved);
+    } else {
+      // Mobile: sidebar is either open overlay or hidden; remove collapsed class.
+      sidebar.classList.remove('collapsed');
+      mainContent.classList.remove('sidebar-collapsed');
     }
-
-    const hamburger = document.getElementById("hamburger");
-    if (!hamburger) return;
-
-    function openMobileSidebar() {
-        if (!isMobileViewport()) return;
-        overlayEl.classList.add("show");
-        sidebarEl.classList.add("mobile-open");
-    }
-
-    function closeMobileSidebar() {
-        overlayEl.classList.remove("show");
-        sidebarEl.classList.remove("mobile-open");
-    }
-
-    hamburger.addEventListener("click", () => {
-        if (sidebarEl.classList.contains("mobile-open")) closeMobileSidebar();
-        else openMobileSidebar();
-    });
-
-    // Close on navigation clicks (any sidebar link)
-    sidebarEl.addEventListener("click", (e) => {
-        const target = e.target;
-        if (!target) return;
-        const link = target.closest && target.closest(".sidebar-nav-item");
-        if (!link) return;
-        if (!isMobileViewport()) return;
-        closeMobileSidebar();
-    });
-
-    window.addEventListener("resize", () => {
-        if (!isMobileViewport()) {
-            overlayEl.classList.remove("show");
-            sidebarEl.classList.remove("mobile-open");
-        }
-    });
+  });
 }
 
-// Shared initializer: must be called on each dashboard + files page.
-function initSharedSidebar() {
+// The spec requires: every dashboard page calls initSidebar() and setActiveNavItem() on load.
+// We intentionally do not auto-run here to avoid double-rendering with different page layouts.
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if (window.__bakesyncSidebarInitialized) return;
+    const hasAnySidebarContainer =
+      !!document.getElementById('sidebar') || !!document.getElementById('app-sidebar');
+    if (!hasAnySidebarContainer) return;
+
+    // Auto-init only when the caller didn't explicitly do it (legacy pages).
     initSidebar();
+    setActiveNavItem();
     initMobileSidebar();
-}
-
-// Backwards-compatible exports for callers in HTML.
-window.initSidebar = initSharedSidebar;
-window.toggleSidebar = toggleSidebar;
-window.setActiveNavItem = setActiveNavItem;
-window.initTooltips = initTooltips;
+  } catch (e) {
+    // Silent: some pages may not have the expected shell.
+  }
+});
 
 
