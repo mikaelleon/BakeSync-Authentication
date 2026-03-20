@@ -9,9 +9,9 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Croissant, AlertTriangle } from "lucide-react"
+import { AuthPageShell } from "@/components/auth/auth-page-shell"
+import { AlertTriangle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -191,74 +191,64 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Croissant className="h-8 w-8 text-primary" />
+    <AuthPageShell
+      title="BakeSync"
+      description="Sign in to your bakery management system"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="your@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={isLoggingIn || isLoading}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isLoggingIn || isLoading}
+          />
+        </div>
+
+        <Button type="submit" className="w-full" disabled={isLoggingIn || isLoading}>
+          {isLoggingIn ? "Signing in..." : "Sign In"}
+        </Button>
+
+        <div className="text-center text-sm">
+          <span className="text-muted-foreground">Don't have an account? </span>
+          <Link href="/signup" className="text-primary hover:underline">
+            Sign up
+          </Link>
+        </div>
+
+        <div className="rounded-lg bg-muted p-4 text-sm">
+          <p className="mb-2 font-medium">Demo Accounts:</p>
+          <div className="space-y-1 text-muted-foreground">
+            <p>Owner: owner@bakesync.com / owner123</p>
+            <p>Baker: baker@bakesync.com / baker123</p>
+            <p>Cashier: cashier@bakesync.com / cashier123</p>
           </div>
-          <div>
-            <CardTitle className="text-2xl font-bold">BakeSync</CardTitle>
-            <CardDescription className="mt-2">Sign in to your bakery management system</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoggingIn || isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoggingIn || isLoading}
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoggingIn || isLoading}>
-              {isLoggingIn ? "Signing in..." : "Sign In"}
-            </Button>
-
-            <div className="text-center text-sm">
-              <span className="text-muted-foreground">Don't have an account? </span>
-              <Link href="/signup" className="text-primary hover:underline">
-                Sign up
-              </Link>
-            </div>
-
-            <div className="rounded-lg bg-muted p-4 text-sm">
-              <p className="font-medium mb-2">Demo Accounts:</p>
-              <div className="space-y-1 text-muted-foreground">
-                <p>Owner: owner@bakesync.com / owner123</p>
-                <p>Baker: baker@bakesync.com / baker123</p>
-                <p>Cashier: cashier@bakesync.com / cashier123</p>
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </form>
+    </AuthPageShell>
   )
 }

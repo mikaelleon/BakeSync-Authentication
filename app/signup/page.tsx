@@ -6,11 +6,11 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AuthPageShell } from "@/components/auth/auth-page-shell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Croissant, AlertTriangle, Eye, EyeOff, Crown, ChefHat, ShoppingCart } from "lucide-react"
+import { AlertTriangle, Eye, EyeOff, Crown, ChefHat, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import { validateInviteCode } from "@/lib/invite-code-utils"
 
@@ -236,268 +236,256 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <Croissant className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <CardTitle className="text-2xl font-bold">Join BakeSync</CardTitle>
-            <CardDescription className="mt-2">
-              Create your account to start managing your bakery
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p>{error}</p>
-                    {error.toLowerCase().includes('rate limit') && (
-                      <div className="mt-2 text-sm space-y-2">
-                        <p className="font-medium">Quick Fixes:</p>
-                        <div className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
-                          <p className="font-semibold text-blue-900">Option 1: Disable Email Confirmation (Recommended)</p>
-                          <p className="text-blue-800 text-xs">
-                            Go to Supabase Dashboard → Authentication → Settings → Disable "Enable email confirmations"
-                          </p>
-                        </div>
-                        <div className="bg-green-50 border border-green-200 rounded p-3 space-y-2">
-                          <p className="font-semibold text-green-900">Option 2: Enable Development Bypass</p>
-                          <p className="text-green-800 text-xs">
-                            Open browser console (F12) and run: <code className="bg-green-100 px-1 rounded">localStorage.setItem('skipEmailVerification', 'true')</code>
-                          </p>
-                        </div>
-                        <div className="bg-purple-50 border border-purple-200 rounded p-3 space-y-2">
-                          <p className="font-semibold text-purple-900">Option 3: Use Demo Account</p>
-                          <p className="text-purple-800 text-xs">
-                            Use <code className="bg-purple-100 px-1 rounded">owner@bakesync.com</code> or <code className="bg-purple-100 px-1 rounded">baker@bakesync.com</code> for testing
-                          </p>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-2">
-                          See <code className="bg-gray-100 px-1 rounded">docs/RATE_LIMIT_SOLUTION.md</code> for detailed instructions
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {formData.role === "owner" && (
+    <AuthPageShell
+      title="Join BakeSync"
+      description="Create your account to start managing your bakery"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
               <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name</Label>
-                <Input
-                  id="businessName"
-                  type="text"
-                  placeholder="Your Bakery Name"
-                  value={formData.businessName}
-                  onChange={(e) => handleInputChange('businessName', e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
+                <p>{error}</p>
+                {error.toLowerCase().includes('rate limit') && (
+                  <div className="mt-2 text-sm space-y-2">
+                    <p className="font-medium">Quick Fixes:</p>
+                    <div className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
+                      <p className="font-semibold text-blue-900">Option 1: Disable Email Confirmation (Recommended)</p>
+                      <p className="text-blue-800 text-xs">
+                        Go to Supabase Dashboard → Authentication → Settings → Disable "Enable email confirmations"
+                      </p>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded p-3 space-y-2">
+                      <p className="font-semibold text-green-900">Option 2: Enable Development Bypass</p>
+                      <p className="text-green-800 text-xs">
+                        Open browser console (F12) and run: <code className="bg-green-100 px-1 rounded">localStorage.setItem('skipEmailVerification', 'true')</code>
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded p-3 space-y-2">
+                      <p className="font-semibold text-purple-900">Option 3: Use Demo Account</p>
+                      <p className="text-purple-800 text-xs">
+                        Use <code className="bg-purple-100 px-1 rounded">owner@bakesync.com</code> or <code className="bg-purple-100 px-1 rounded">baker@bakesync.com</code> for testing
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-2">
+                      See <code className="bg-gray-100 px-1 rounded">docs/RATE_LIMIT_SOLUTION.md</code> for detailed instructions
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </AlertDescription>
+          </Alert>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Your Full Name"
-                value={formData.fullName}
-                onChange={(e) => handleInputChange('fullName', e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
+        {formData.role === "owner" && (
+          <div className="space-y-2">
+            <Label htmlFor="businessName">Business Name</Label>
+            <Input
+              id="businessName"
+              type="text"
+              placeholder="Your Bakery Name"
+              value={formData.businessName}
+              onChange={(e) => handleInputChange('businessName', e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name</Label>
+          <Input
+            id="fullName"
+            type="text"
+            placeholder="Your Full Name"
+            value={formData.fullName}
+            onChange={(e) => handleInputChange('fullName', e.target.value)}
+            required
+            disabled={isLoading}
+          />
+        </div>
 
-            <div className="space-y-3">
-              <Label>Select Your Role</Label>
-              <RadioGroup
-                value={formData.role}
-                onValueChange={(value) => {
-                  handleInputChange('role', value)
-                  // Clear invite code when switching to owner
-                  if (value === "owner") {
-                    setFormData(prev => ({ ...prev, inviteCode: "" }))
-                    setInviteCodeError("")
-                    setValidatedBakeshop(null)
-                  }
-                }}
-                disabled={isLoading}
-                className="grid grid-cols-3 gap-4"
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="your@email.com"
+            value={formData.email}
+            onChange={(e) => handleInputChange('email', e.target.value)}
+            required
+            disabled={isLoading}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <Label>Select Your Role</Label>
+          <RadioGroup
+            value={formData.role}
+            onValueChange={(value) => {
+              handleInputChange('role', value)
+              // Clear invite code when switching to owner
+              if (value === "owner") {
+                setFormData(prev => ({ ...prev, inviteCode: "" }))
+                setInviteCodeError("")
+                setValidatedBakeshop(null)
+              }
+            }}
+            disabled={isLoading}
+            className="grid grid-cols-3 gap-4"
+          >
+            <div>
+              <RadioGroupItem value="owner" id="role-owner" className="peer sr-only" />
+              <Label
+                htmlFor="role-owner"
+                className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-background p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
               >
-                <div>
-                  <RadioGroupItem value="owner" id="role-owner" className="peer sr-only" />
-                  <Label
-                    htmlFor="role-owner"
-                    className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-background p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <Crown className="mb-3 h-6 w-6" />
-                    <div className="text-center">
-                      <div className="font-semibold">Owner</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Full access to all features
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="baker" id="role-baker" className="peer sr-only" />
-                  <Label
-                    htmlFor="role-baker"
-                    className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-background p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <ChefHat className="mb-3 h-6 w-6" />
-                    <div className="text-center">
-                      <div className="font-semibold">Baker</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Recipes, production, inventory
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="cashier" id="role-cashier" className="peer sr-only" />
-                  <Label
-                    htmlFor="role-cashier"
-                    className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-background p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                  >
-                    <ShoppingCart className="mb-3 h-6 w-6" />
-                    <div className="text-center">
-                      <div className="font-semibold">Cashier</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        POS, sales, transactions
-                      </div>
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {formData.role !== "owner" && (
-              <div className="space-y-2">
-                <Label htmlFor="inviteCode">Invite Code *</Label>
-                <Input
-                  id="inviteCode"
-                  type="text"
-                  placeholder="Enter 6-character invite code"
-                  value={formData.inviteCode}
-                  onChange={(e) => {
-                    const code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
-                    handleInviteCodeChange(code)
-                  }}
-                  maxLength={6}
-                  required={true}
-                  disabled={isLoading}
-                  className={inviteCodeError ? "border-destructive" : validatedBakeshop ? "border-green-500" : ""}
-                />
-                {inviteCodeError && (
-                  <p className="text-sm text-destructive">{inviteCodeError}</p>
-                )}
-                {validatedBakeshop && (
-                  <div className="text-sm text-green-600 space-y-1">
-                    <p>✓ Valid code for: {validatedBakeshop.name}</p>
-                    {validatedBakeshop.role && (
-                      <p className="font-medium">Role: {validatedBakeshop.role.charAt(0).toUpperCase() + validatedBakeshop.role.slice(1)}</p>
-                    )}
+                <Crown className="mb-3 h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-semibold">Owner</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Full access to all features
                   </div>
+                </div>
+              </Label>
+            </div>
+            <div>
+              <RadioGroupItem value="baker" id="role-baker" className="peer sr-only" />
+              <Label
+                htmlFor="role-baker"
+                className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-background p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+              >
+                <ChefHat className="mb-3 h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-semibold">Baker</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Recipes, production, inventory
+                  </div>
+                </div>
+              </Label>
+            </div>
+            <div>
+              <RadioGroupItem value="cashier" id="role-cashier" className="peer sr-only" />
+              <Label
+                htmlFor="role-cashier"
+                className="flex flex-col items-center justify-between rounded-lg border-2 border-muted bg-background p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+              >
+                <ShoppingCart className="mb-3 h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-semibold">Cashier</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    POS, sales, transactions
+                  </div>
+                </div>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {formData.role !== "owner" && (
+          <div className="space-y-2">
+            <Label htmlFor="inviteCode">Invite Code *</Label>
+            <Input
+              id="inviteCode"
+              type="text"
+              placeholder="Enter 6-character invite code"
+              value={formData.inviteCode}
+              onChange={(e) => {
+                const code = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+                handleInviteCodeChange(code)
+              }}
+              maxLength={6}
+              required={true}
+              disabled={isLoading}
+              className={inviteCodeError ? "border-destructive" : validatedBakeshop ? "border-green-500" : ""}
+            />
+            {inviteCodeError && (
+              <p className="text-sm text-destructive">{inviteCodeError}</p>
+            )}
+            {validatedBakeshop && (
+              <div className="text-sm text-green-600 space-y-1">
+                <p>✓ Valid code for: {validatedBakeshop.name}</p>
+                {validatedBakeshop.role && (
+                  <p className="font-medium">Role: {validatedBakeshop.role.charAt(0).toUpperCase() + validatedBakeshop.role.slice(1)}</p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Ask your bakery owner for the invite code
-                </p>
               </div>
             )}
+            <p className="text-xs text-muted-foreground">
+              Ask your bakery owner for the invite code
+            </p>
+          </div>
+        )}
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  disabled={isLoading}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating Account..." : "Create Account"}
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              required
+              disabled={isLoading}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowPassword(!showPassword)}
+              disabled={isLoading}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
             </Button>
+          </div>
+        </div>
 
-            <div className="text-center text-sm">
-              <span className="text-muted-foreground">Already have an account? </span>
-              <Link href="/login" className="text-primary hover:underline">
-                Sign in
-              </Link>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <div className="relative">
+            <Input
+              id="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={formData.confirmPassword}
+              onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+              required
+              disabled={isLoading}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              disabled={isLoading}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Creating Account..." : "Create Account"}
+        </Button>
+
+        <div className="text-center text-sm">
+          <span className="text-muted-foreground">Already have an account? </span>
+          <Link href="/login" className="text-primary hover:underline">
+            Sign in
+          </Link>
+        </div>
+      </form>
+    </AuthPageShell>
   )
 }

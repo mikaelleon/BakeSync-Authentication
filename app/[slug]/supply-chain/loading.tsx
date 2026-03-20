@@ -1,16 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { DashboardLoadingHeader } from "@/components/layout/dashboard-loading-shell"
 
 export default function SupplyChainLoading() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-5 w-96 mt-2" />
-        </div>
-        <Skeleton className="h-10 w-32" />
-      </div>
+      <DashboardLoadingHeader />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -22,7 +17,7 @@ export default function SupplyChainLoading() {
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i}>
                   <CardContent className="pt-6">
-                    <Skeleton className="h-5 w-3/4 mb-2" />
+                    <Skeleton className="mb-2 h-5 w-3/4" />
                     <Skeleton className="h-4 w-1/2" />
                   </CardContent>
                 </Card>

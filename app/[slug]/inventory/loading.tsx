@@ -1,16 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { DashboardLoadingHeader } from "@/components/layout/dashboard-loading-shell"
 
 export default function InventoryLoading() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-5 w-96 mt-2" />
-        </div>
-        <Skeleton className="h-10 w-32" />
-      </div>
+      <DashboardLoadingHeader />
 
       <div className="grid gap-4 md:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
