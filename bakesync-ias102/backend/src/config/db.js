@@ -19,10 +19,6 @@ function normalizeDbHost(rawHost) {
         host = host.split(':')[0];
     }
 
-    // Common typo seen in deployments: "bakesync-bakesync.a.aivencloud.com"
-    // -> "bakesync.a.aivencloud.com"
-    host = host.replace(/^bakesync-bakesync\./i, 'bakesync.');
-
     // Common Aiven hostname typo: extra ".a" segment.
     // Example: "foo.a.aivencloud.com" -> "foo.aivencloud.com"
     host = host.replace(/\.a\.aivencloud\.com$/i, '.aivencloud.com');
@@ -82,7 +78,7 @@ if (!dbConfig.host) {
 }
 
 // Add SSL configuration for Aiven (production)
-if (process.env.DB_SSL === 'true') {
+if (String(process.env.DB_SSL || '').toLowerCase() === 'true') {
     const caPath = path.join(__dirname, '../../ca.pem');
     if (fs.existsSync(caPath)) {
         dbConfig.ssl = {
@@ -91,7 +87,10 @@ if (process.env.DB_SSL === 'true') {
         };
         console.log('Database SSL enabled with ca.pem');
     } else {
-        console.warn('Warning: DB_SSL=true but ca.pem not found at', caPath);
+        // Fallback: Aiven commonly uses TLS; allow connection even without CA bundle.
+        // This avoids failures where `ca.pem` isn't mounted in the platform.
+        console.warn('Warning: DB_SSL=true but ca.pem not found at', caPath, '- enabling SSL with rejectUnauthorized:false');
+        dbConfig.ssl = { rejectUnauthorized: false };
     }
 }
 
