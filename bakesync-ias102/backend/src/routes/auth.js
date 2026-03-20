@@ -6,6 +6,8 @@ const { generateOTP, getOTPExpiry } = require('../utils/otp');
 const { sendOTPEmail } = require('../utils/mailer');
 
 const router = express.Router();
+const MAX_OTP_ATTEMPTS = 5;
+const OTP_LOCK_MINUTES = 15;
 
 /**
  * POST /api/auth/register
@@ -36,22 +38,46 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
-        // Check if username exists
-        const [existingUser] = await pool.execute(
-            'SELECT id FROM users WHERE username = ?',
+        // Check username/email existence (and whether already verified)
+        const [usernameRows] = await pool.execute(
+            'SELECT id, is_verified FROM users WHERE username = ?',
             [username]
         );
-        if (existingUser.length > 0) {
-            return res.status(409).json({ error: 'Username already taken' });
-        }
+        const usernameRow = usernameRows && usernameRows[0] ? usernameRows[0] : null;
 
-        // Check if email exists
-        const [existingEmail] = await pool.execute(
-            'SELECT id FROM users WHERE email = ?',
+        const [emailRows] = await pool.execute(
+            'SELECT id, is_verified FROM users WHERE email = ?',
             [email]
         );
-        if (existingEmail.length > 0) {
-            return res.status(409).json({ error: 'Email already registered' });
+        const emailRow = emailRows && emailRows[0] ? emailRows[0] : null;
+
+        // If we found an unverified user for either field, we resend OTP (instead of 409).
+        let candidateUserId = null;
+        let candidateResent = false;
+        if (usernameRow && Number(usernameRow.is_verified) === 0) {
+            candidateUserId = usernameRow.id;
+            candidateResent = true;
+        } else if (emailRow && Number(emailRow.is_verified) === 0) {
+            candidateUserId = emailRow.id;
+            candidateResent = true;
+        }
+
+        // Block conflicts for already-verified accounts.
+        if (!candidateUserId) {
+            if (usernameRow && Number(usernameRow.is_verified) === 1) {
+                return res.status(409).json({ error: 'Username already taken' });
+            }
+            if (emailRow && Number(emailRow.is_verified) === 1) {
+                return res.status(409).json({ error: 'Email already registered' });
+            }
+        } else {
+            // Candidate resend is only allowed if the other unique field isn't taken by someone else.
+            if (usernameRow && usernameRow.id !== candidateUserId) {
+                return res.status(409).json({ error: 'Username already taken' });
+            }
+            if (emailRow && emailRow.id !== candidateUserId) {
+                return res.status(409).json({ error: 'Email already registered' });
+            }
         }
 
         // Hash password
@@ -60,11 +86,47 @@ router.post('/register', async (req, res) => {
         // Generate OTP
         const otpCode = generateOTP();
         const otpExpiry = getOTPExpiry();
+        const expiresAt = otpExpiry.toISOString();
 
-        // Insert user with is_verified = 0
+        if (candidateResent && candidateUserId) {
+            // Update existing unverified user (unblocks the re-registration loop).
+            await pool.execute(
+                `UPDATE users
+                 SET username = ?,
+                     email = ?,
+                     password_hash = ?,
+                     role = ?,
+                     otp_code = ?,
+                     otp_expires_at = ?,
+                     otp_attempts = 0,
+                     otp_locked_until = NULL,
+                     is_verified = 0
+                 WHERE id = ?`,
+                [username, email, passwordHash, role, otpCode, otpExpiry, candidateUserId]
+            );
+
+            try {
+                await sendOTPEmail(email, username, otpCode);
+            } catch (emailError) {
+                console.error('Failed to resend OTP email:', emailError);
+                return res.status(500).json({
+                    error: 'Failed to send verification email. Please try again.'
+                });
+            }
+
+            return res.status(200).json({
+                message: 'Verification code resent to your email.',
+                resent: true,
+                userId: candidateUserId,
+                username: username,
+                expiresAt
+            });
+        }
+
+        // Create new user with is_verified = 0
         const [result] = await pool.execute(
-            `INSERT INTO users (username, email, password_hash, role, otp_code, otp_expires_at, is_verified)
-             VALUES (?, ?, ?, ?, ?, ?, 0)`,
+            `INSERT INTO users (username, email, password_hash, role, otp_code, otp_expires_at, otp_attempts, otp_locked_until, is_verified)
+             VALUES (?, ?, ?, ?, ?, ?, 0, NULL, 0)`,
             [username, email, passwordHash, role, otpCode, otpExpiry]
         );
 
@@ -85,7 +147,8 @@ router.post('/register', async (req, res) => {
         res.status(201).json({
             message: 'Verification code sent to your email.',
             userId: userId,
-            username: username
+            username: username,
+            expiresAt
         });
     } catch (error) {
         console.error('Registration error:', error);
@@ -107,7 +170,7 @@ router.post('/verify-otp', async (req, res) => {
 
         // Get user
         const [rows] = await pool.execute(
-            'SELECT id, username, email, role, otp_code, otp_expires_at, is_verified FROM users WHERE id = ?',
+            'SELECT id, username, email, role, otp_code, otp_expires_at, otp_attempts, otp_locked_until, is_verified FROM users WHERE id = ?',
             [userId]
         );
 
@@ -126,13 +189,27 @@ router.post('/verify-otp', async (req, res) => {
             });
         }
 
-        // Check OTP code
-        if (user.otp_code !== otp) {
-            return res.status(401).json({ error: 'Invalid OTP code.' });
+        const now = new Date();
+
+        // Lockout check
+        if (user.otp_locked_until) {
+            const lockedUntil = new Date(user.otp_locked_until);
+            if (now < lockedUntil) {
+                return res.status(429).json({
+                    error: 'Too many invalid OTP attempts. Please try again later.',
+                    lockedUntil: lockedUntil.toISOString(),
+                    attemptsRemaining: 0
+                });
+            }
         }
 
         // Check OTP expiry
-        const now = new Date();
+        if (!user.otp_expires_at) {
+            return res.status(401).json({
+                error: 'OTP has expired. Please register again.'
+            });
+        }
+
         const otpExpiry = new Date(user.otp_expires_at);
         if (now > otpExpiry) {
             return res.status(401).json({
@@ -140,9 +217,41 @@ router.post('/verify-otp', async (req, res) => {
             });
         }
 
+        // OTP mismatch => increment attempt counter + possibly lock
+        if (user.otp_code !== otp) {
+            const prevAttempts = Number(user.otp_attempts || 0);
+            const nextAttempts = prevAttempts + 1;
+
+            if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+                const lockedUntil = new Date(now);
+                lockedUntil.setMinutes(lockedUntil.getMinutes() + OTP_LOCK_MINUTES);
+
+                await pool.execute(
+                    'UPDATE users SET otp_attempts = ?, otp_locked_until = ?, otp_code = NULL, otp_expires_at = NULL WHERE id = ?',
+                    [MAX_OTP_ATTEMPTS, lockedUntil, userId]
+                );
+
+                return res.status(429).json({
+                    error: 'Too many invalid OTP attempts. You are temporarily locked out.',
+                    lockedUntil: lockedUntil.toISOString(),
+                    attemptsRemaining: 0
+                });
+            }
+
+            await pool.execute(
+                'UPDATE users SET otp_attempts = ? WHERE id = ?',
+                [nextAttempts, userId]
+            );
+
+            return res.status(401).json({
+                error: 'Invalid OTP code.',
+                attemptsRemaining: MAX_OTP_ATTEMPTS - nextAttempts
+            });
+        }
+
         // Activate account
         await pool.execute(
-            'UPDATE users SET is_verified = 1, otp_code = NULL, otp_expires_at = NULL WHERE id = ?',
+            'UPDATE users SET is_verified = 1, otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
             [userId]
         );
 
@@ -171,7 +280,7 @@ router.post('/resend-otp', async (req, res) => {
 
         // Get user
         const [rows] = await pool.execute(
-            'SELECT id, username, email, otp_expires_at, is_verified FROM users WHERE id = ?',
+            'SELECT id, username, email, otp_expires_at, otp_attempts, otp_locked_until, is_verified FROM users WHERE id = ?',
             [userId]
         );
 
@@ -184,6 +293,19 @@ router.post('/resend-otp', async (req, res) => {
         // Check if already verified
         if (user.is_verified === 1) {
             return res.status(404).json({ error: 'User not found or already verified' });
+        }
+
+        // Lockout check (prevents resend from bypassing OTP brute-force protection)
+        const now = new Date();
+        if (user.otp_locked_until) {
+            const lockedUntil = new Date(user.otp_locked_until);
+            if (now < lockedUntil) {
+                return res.status(429).json({
+                    error: 'Too many invalid OTP attempts. Please try again later.',
+                    lockedUntil: lockedUntil.toISOString(),
+                    attemptsRemaining: 0
+                });
+            }
         }
 
         // Rate limit: check if previous OTP was sent less than 1 minute ago
@@ -202,10 +324,11 @@ router.post('/resend-otp', async (req, res) => {
         // Generate new OTP
         const otpCode = generateOTP();
         const otpExpiry = getOTPExpiry();
+        const expiresAt = otpExpiry.toISOString();
 
         // Update OTP in database
         await pool.execute(
-            'UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?',
+            'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
             [otpCode, otpExpiry, userId]
         );
 
@@ -220,7 +343,9 @@ router.post('/resend-otp', async (req, res) => {
         }
 
         res.status(200).json({
-            message: 'A new code has been sent to your email.'
+            message: 'A new code has been sent to your email.',
+            expiresAt,
+            attemptsRemaining: MAX_OTP_ATTEMPTS
         });
     } catch (error) {
         console.error('Resend OTP error:', error);

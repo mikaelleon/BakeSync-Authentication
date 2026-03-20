@@ -88,6 +88,20 @@ function showLoginError(message) {
  */
 function checkRegistrationSuccess() {
     const urlParams = new URLSearchParams(window.location.search);
+    const expired = urlParams.get('expired');
+
+    // Improvement 2: show JWT expiry context.
+    if (expired === 'true') {
+        const infoEl = document.getElementById('login-info');
+        const infoMsgEl = document.getElementById('login-info-message');
+        if (infoEl && infoMsgEl) {
+            infoMsgEl.textContent = 'Your session expired. Please sign in again.';
+            infoEl.style.display = 'flex';
+        }
+        window.history.replaceState({}, '', 'login.html');
+        return;
+    }
+
     if (urlParams.get('registered') === 'true') {
         const successAlert = document.getElementById('success-alert');
         const successMsg = document.getElementById('success-message');
@@ -169,6 +183,9 @@ async function handleRegister(event) {
         sessionStorage.setItem('reg_userId', data.userId);
         sessionStorage.setItem('reg_username', data.username);
         sessionStorage.setItem('reg_email', email);
+        if (data.expiresAt) {
+            sessionStorage.setItem('reg_expires_at', data.expiresAt);
+        }
 
         // Redirect to OTP verification
         window.location.href = 'otp.html';
@@ -226,33 +243,112 @@ function clearAllFieldErrors() {
         emailDisplay.textContent = `Code sent to: ${masked}`;
     }
 
-    // Timer
-    let seconds = 600; // 10 minutes
+    // Timer (Improvement 4: server-synced, avoids desync on refresh)
     const timerEl = document.getElementById('otp-timer');
     const verifyBtn = document.getElementById('otp-verify-btn');
     const resendBtn = document.getElementById('otp-resend-btn');
+    const attemptsEl = document.getElementById('otp-attempts-remaining');
+
+    const MAX_OTP_ATTEMPTS = 5;
+    let lockoutUntilMs = null;
+    let lockoutIntervalId = null;
+    let resendCooldownUntilMs = Date.now() + 60000; // mirrors backend: ~1 minute between resends
+
+    let seconds = 600; // fallback if reg_expires_at isn't present
+    const regExpiresAt = sessionStorage.getItem('reg_expires_at');
+    if (regExpiresAt) {
+        const msLeft = new Date(regExpiresAt).getTime() - Date.now();
+        seconds = Math.max(0, Math.ceil(msLeft / 1000));
+    }
+
+    function formatMmSs(totalSeconds) {
+        const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+        const s = String(totalSeconds % 60).padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    function isLockoutActive() {
+        return !!lockoutUntilMs && Date.now() < lockoutUntilMs;
+    }
+
+    function setAttemptsRemainingText(text) {
+        if (attemptsEl) attemptsEl.textContent = text || '';
+    }
+
+    function updateTimerDisplay() {
+        if (!timerEl) return;
+        if (seconds <= 0) {
+            timerEl.textContent = 'Code expired';
+            timerEl.classList.add('expired');
+            return;
+        }
+        timerEl.classList.remove('expired');
+        timerEl.textContent = formatMmSs(seconds);
+    }
+
+    function updateVerifyEnabled() {
+        if (!verifyBtn) return;
+        verifyBtn.disabled = seconds <= 0 || isLockoutActive();
+    }
+
+    function updateResendEnabled() {
+        if (!resendBtn) return;
+        const shouldEnable =
+            !isLockoutActive() &&
+            (seconds <= 0 || Date.now() >= resendCooldownUntilMs);
+        resendBtn.disabled = !shouldEnable;
+    }
+
+    function startLockoutCountdown(lockedUntilIso) {
+        if (!lockedUntilIso) return;
+        lockoutUntilMs = new Date(lockedUntilIso).getTime();
+        // Backend lockout clears otp_code/otp_expires_at, so reflect as expired in UI.
+        seconds = 0;
+        updateTimerDisplay();
+        updateVerifyEnabled();
+        updateResendEnabled();
+        if (lockoutIntervalId) clearInterval(lockoutIntervalId);
+
+        const tick = () => {
+            const remainingMs = lockoutUntilMs - Date.now();
+            const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+
+            updateVerifyEnabled();
+            updateResendEnabled();
+
+            if (attemptsEl) {
+                if (remainingSeconds > 0) {
+                    attemptsEl.textContent = `Locked out (${formatMmSs(remainingSeconds)})`;
+                } else {
+                    setAttemptsRemainingText(`${MAX_OTP_ATTEMPTS} attempt(s) remaining`);
+                }
+            }
+
+            if (remainingSeconds <= 0) {
+                if (lockoutIntervalId) clearInterval(lockoutIntervalId);
+                lockoutIntervalId = null;
+                lockoutUntilMs = null;
+                updateVerifyEnabled();
+                updateResendEnabled();
+            }
+        };
+
+        tick();
+        lockoutIntervalId = setInterval(tick, 1000);
+    }
+
+    // Initial display
+    updateTimerDisplay();
+    setAttemptsRemainingText(`${MAX_OTP_ATTEMPTS} attempt(s) remaining`);
+    updateVerifyEnabled();
+    updateResendEnabled();
 
     const countdownInterval = setInterval(() => {
-        seconds--;
-        const m = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const s = String(seconds % 60).padStart(2, '0');
-        if (timerEl) timerEl.textContent = `${m}:${s}`;
-
-        if (seconds <= 0) {
-            clearInterval(countdownInterval);
-            if (timerEl) {
-                timerEl.textContent = 'Code expired';
-                timerEl.classList.add('expired');
-            }
-            if (verifyBtn) verifyBtn.disabled = true;
-            if (resendBtn) resendBtn.disabled = false;
-        }
+        seconds = Math.max(0, seconds - 1);
+        updateTimerDisplay();
+        updateVerifyEnabled();
+        updateResendEnabled();
     }, 1000);
-
-    // Enable resend after 60 seconds
-    setTimeout(() => {
-        if (resendBtn && seconds > 0) resendBtn.disabled = false;
-    }, 60000);
 
     // OTP form submission
     document.getElementById('otp-form').addEventListener('submit', async function(e) {
@@ -280,19 +376,42 @@ function clearAllFieldErrors() {
                 body: JSON.stringify({ userId: parseInt(userId), otp })
             });
 
-            const data = await response.json();
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = {};
+            }
 
             if (!response.ok) {
-                throw new Error(data.error || 'Verification failed');
+                document.getElementById('error-message').textContent = data.error || 'Verification failed';
+                errorAlert.style.display = 'flex';
+
+                // Keep backend-provided state in sync with UI hints.
+                if (response.status === 429 && data.lockedUntil) {
+                    startLockoutCountdown(data.lockedUntil);
+                } else if (response.status === 401 && typeof data.attemptsRemaining === 'number') {
+                    setAttemptsRemainingText(`${data.attemptsRemaining} attempt(s) remaining`);
+                }
+
+                document.getElementById('otp-input').value = '';
+                document.getElementById('otp-input').focus();
+
+                verifyBtn.textContent = 'Verify Code';
+                updateVerifyEnabled();
+                updateResendEnabled();
+                return;
             }
 
             // Clear registration session
             sessionStorage.removeItem('reg_userId');
             sessionStorage.removeItem('reg_username');
             sessionStorage.removeItem('reg_email');
+            sessionStorage.removeItem('reg_expires_at');
 
             // Show success state
             clearInterval(countdownInterval);
+            if (lockoutIntervalId) clearInterval(lockoutIntervalId);
             document.getElementById('otp-form-container').style.display = 'none';
             document.getElementById('otp-success-container').style.display = 'block';
 
@@ -301,12 +420,13 @@ function clearAllFieldErrors() {
                 window.location.href = 'login.html?registered=true';
             }, 2000);
         } catch (error) {
-            document.getElementById('error-message').textContent = error.message;
+            document.getElementById('error-message').textContent = error.message || 'Verification failed';
             errorAlert.style.display = 'flex';
             document.getElementById('otp-input').value = '';
             document.getElementById('otp-input').focus();
-            verifyBtn.disabled = false;
             verifyBtn.textContent = 'Verify Code';
+            updateVerifyEnabled();
+            updateResendEnabled();
         }
     });
 
@@ -326,29 +446,58 @@ function clearAllFieldErrors() {
                     body: JSON.stringify({ userId: parseInt(userId) })
                 });
 
-                const data = await response.json();
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    data = {};
+                }
 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to resend code');
+                    document.getElementById('error-message').textContent = data.error || 'Failed to resend code';
+                    errorAlert.style.display = 'flex';
+
+                    if (response.status === 429 && data.lockedUntil) {
+                        startLockoutCountdown(data.lockedUntil);
+                    }
+
+                    updateVerifyEnabled();
+                    updateResendEnabled();
+                    return;
                 }
 
                 // Show success message
                 document.getElementById('success-message').textContent = 'A new code has been sent to your email.';
                 successAlert.style.display = 'flex';
 
-                // Reset timer
-                seconds = 600;
-                timerEl.classList.remove('expired');
-                verifyBtn.disabled = false;
+                // Reset server-synced timer + resend cooldown.
+                if (data.expiresAt) {
+                    sessionStorage.setItem('reg_expires_at', data.expiresAt);
+                    const msLeft = new Date(data.expiresAt).getTime() - Date.now();
+                    seconds = Math.max(0, Math.ceil(msLeft / 1000));
+                }
 
-                // Disable resend for 60 seconds
-                setTimeout(() => {
-                    if (seconds > 0) resendBtn.disabled = false;
-                }, 60000);
+                // Clear any active lockout state (resend resets attempts/lock on the backend too)
+                if (lockoutIntervalId) clearInterval(lockoutIntervalId);
+                lockoutIntervalId = null;
+                lockoutUntilMs = null;
+
+                if (typeof data.attemptsRemaining === 'number') {
+                    setAttemptsRemainingText(`${data.attemptsRemaining} attempt(s) remaining`);
+                } else {
+                    setAttemptsRemainingText(`${MAX_OTP_ATTEMPTS} attempt(s) remaining`);
+                }
+
+                updateTimerDisplay();
+                updateVerifyEnabled();
+
+                resendCooldownUntilMs = Date.now() + 60000;
+                updateResendEnabled();
             } catch (error) {
-                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error-message').textContent = error.message || 'Failed to resend code';
                 errorAlert.style.display = 'flex';
-                resendBtn.disabled = false;
+                updateVerifyEnabled();
+                updateResendEnabled();
             }
         });
     }

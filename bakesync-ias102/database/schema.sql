@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
     -- OTP is reused for both email verification and account deletion confirmation
     otp_code VARCHAR(6) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
+    -- Brute-force protection for OTP verification
+    otp_attempts INT NOT NULL DEFAULT 0,
+    otp_locked_until DATETIME DEFAULT NULL,
     is_verified TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -28,6 +31,21 @@ CREATE TABLE IF NOT EXISTS files (
     is_public TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Audit trail for DAC decisions (allowed + denied)
+CREATE TABLE IF NOT EXISTS access_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    file_id INT NULL,
+    action ENUM('view', 'visibility', 'delete') NOT NULL,
+    result ENUM('allowed', 'denied') NOT NULL,
+    reason VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE SET NULL,
+    INDEX (created_at),
+    INDEX (file_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed Users (passwords pre-hashed with bcrypt rounds=10)

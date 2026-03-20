@@ -152,7 +152,7 @@ router.post('/me/delete/request-otp', authMiddleware, async (req, res) => {
         const otpExpiry = getOTPExpiry();
 
         await pool.execute(
-            'UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?',
+            'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
             [otpCode, otpExpiry, userId]
         );
 

@@ -26,9 +26,30 @@ async function apiRequest(endpoint, options = {}) {
 
     const response = await fetch(`${API_BASE}${endpoint}`, config);
 
-    const data = await response.json();
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (e) {
+        data = {};
+    }
 
     if (!response.ok) {
+        if (response.status === 401) {
+            const endpointLc = String(endpoint || '').toLowerCase();
+            const isAuthEndpoint =
+                endpointLc.includes('/api/auth/login') ||
+                endpointLc.includes('/api/auth/register') ||
+                endpointLc.includes('/api/auth/verify-otp') ||
+                endpointLc.includes('/api/auth/resend-otp');
+
+            // Improvement: on expired JWT, redirect to login with context.
+            if (!isAuthEndpoint) {
+                sessionStorage.clear();
+                window.__bakesyncJwtExpiredRedirected = true;
+                window.location.href = 'login.html?expired=true';
+            }
+        }
+
         throw new Error(data.error || 'Request failed');
     }
 

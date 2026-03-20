@@ -392,7 +392,7 @@ function openAccessDeniedModal(message) {
               <p>${escapeHtml(message || 'You do not have permission to access this file.')}</p>
               <p style="margin-top: 1rem;">
                 <strong>DAC Rule:</strong> Only the file owner can access private files.
-                This access attempt has been recorded.
+                Your access attempt is recorded in the audit log. Managers can review denied access in the Access Denial Log panel.
               </p>
             </div>
           </div>
@@ -984,6 +984,76 @@ function renderActivityFeed(activity) {
     return card;
 }
 
+/**
+ * Admin-only panel showing recent denied DAC decisions.
+ */
+async function renderAccessDeniedLogPanel() {
+    const card = document.createElement('div');
+    card.className = 'content-card';
+    card.innerHTML = `
+      <h3>DAC Access Denial Log</h3>
+      <p class="text-sm text-muted" style="margin-top: -0.25rem; margin-bottom: 1rem; color: var(--muted-foreground);">
+        Recent denied access attempts recorded by DAC rules.
+      </p>
+      <div id="denied-log-list">
+        <div style="color: var(--muted-foreground); font-size: 0.875rem;">Loading...</div>
+      </div>
+    `;
+
+    const wrap = card.querySelector('#denied-log-list');
+    try {
+        const logs = await apiGet('/api/files/logs/denied');
+        const safeLogs = Array.isArray(logs) ? logs : [];
+
+        if (safeLogs.length === 0) {
+            wrap.innerHTML = `
+              <div style="text-align:center; color: var(--muted-foreground); font-size: 0.875rem; padding: 1rem 0;">
+                No denied access attempts.
+              </div>
+            `;
+            return card;
+        }
+
+        wrap.innerHTML = safeLogs
+            .map((log) => {
+                const when = log.time ? timeAgo(log.time) : '—';
+                const user = log.user || 'Unknown';
+                const file = log.filename || 'Unknown file';
+                const action = log.action || '—';
+                const reason = log.reason || '—';
+
+                return `
+                  <div style="display:flex; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); margin-bottom: 0.75rem; align-items:flex-start;">
+                    <div style="width: 10px; height: 10px; border-radius: 9999px; margin-top: 7px; background: var(--destructive); flex-shrink: 0;"></div>
+                    <div style="flex: 1;">
+                      <div style="font-size: 0.875rem; color: var(--foreground);">
+                        ${escapeHtml(action)} denied
+                      </div>
+                      <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4;">
+                        User: ${escapeHtml(user)}<br/>
+                        File: ${escapeHtml(file)}<br/>
+                        Reason: ${escapeHtml(reason)}
+                      </div>
+                      <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 6px;">
+                        ${escapeHtml(when)}
+                      </div>
+                    </div>
+                  </div>
+                `;
+            })
+            .join('');
+    } catch (error) {
+        console.error('Denied access logs load error:', error);
+        wrap.innerHTML = `
+          <div style="text-align:center; color: var(--destructive); font-size: 0.875rem; padding: 1rem 0;">
+            Failed to load denied access logs.
+          </div>
+        `;
+    }
+
+    return card;
+}
+
 function renderProductionScheduleTable(schedule) {
     const card = document.createElement('div');
     card.className = 'content-card';
@@ -1133,6 +1203,7 @@ async function renderRoleDashboardContent(role) {
     // Role-specific panels
     if (role === 'admin') {
         main.appendChild(renderActivityFeed(data.recentActivity || []));
+        main.appendChild(await renderAccessDeniedLogPanel());
     } else if (role === 'staff') {
         main.appendChild(renderProductionScheduleTable(data.schedule || []));
     } else if (role === 'user') {
@@ -1159,7 +1230,10 @@ async function loadAdminDashboard() {
         await renderRoleDashboardContent('admin');
     } catch (error) {
         console.error('Admin dashboard error:', error);
-        if (error && error.message === 'Unauthorized') logout();
+        if (error && error.message === 'Unauthorized') {
+            if (window.__bakesyncJwtExpiredRedirected) return;
+            logout();
+        }
     }
 }
 
@@ -1176,7 +1250,10 @@ async function loadStaffDashboard() {
         await renderRoleDashboardContent('staff');
     } catch (error) {
         console.error('Staff dashboard error:', error);
-        if (error && error.message === 'Unauthorized') logout();
+        if (error && error.message === 'Unauthorized') {
+            if (window.__bakesyncJwtExpiredRedirected) return;
+            logout();
+        }
     }
 }
 
@@ -1193,7 +1270,10 @@ async function loadUserDashboard() {
         await renderRoleDashboardContent('user');
     } catch (error) {
         console.error('User dashboard error:', error);
-        if (error && error.message === 'Unauthorized') logout();
+        if (error && error.message === 'Unauthorized') {
+            if (window.__bakesyncJwtExpiredRedirected) return;
+            logout();
+        }
     }
 }
 

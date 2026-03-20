@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const filesRoutes = require('./routes/files');
 const usersRoutes = require('./routes/users');
+const csrfProtect = require('./middleware/csrf');
 
 const app = express();
 
@@ -40,6 +41,10 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mount routes
+// Apply Origin-based CSRF protection to state-changing API routes.
+app.use('/api/auth', csrfProtect);
+app.use('/api/files', csrfProtect);
+app.use('/api/users', csrfProtect);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/files', filesRoutes);

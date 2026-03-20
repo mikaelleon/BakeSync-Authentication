@@ -1,8 +1,21 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const pool = require('../config/db');
+const { requireRole } = require('../middleware/rbac');
 
 const router = express.Router();
+
+async function logAccess({ userId, fileId, action, result, reason }) {
+    try {
+        await pool.execute(
+            `INSERT INTO access_logs (user_id, file_id, action, result, reason)
+             VALUES (?, ?, ?, ?, ?)`,
+            [userId || null, fileId || null, action, result, reason || null]
+        );
+    } catch (e) {
+        // Audit logging must never break the main request.
+    }
+}
 
 /**
  * GET /api/files
@@ -89,9 +102,25 @@ router.get('/:id', authMiddleware, async (req, res) => {
         const file = rows[0];
 
         // DAC enforcement: only owner or public files can be accessed
-        if (file.owner_id !== userId && file.is_public !== 1) {
+        const isAllowed = file.owner_id === userId || file.is_public === 1;
+        if (!isAllowed) {
+            await logAccess({
+                userId,
+                fileId,
+                action: 'view',
+                result: 'denied',
+                reason: 'not_owner_private'
+            });
             return res.status(403).json({ error: 'Access denied: you do not own this file' });
         }
+
+        // Allowed view (Improvement 6: audit both allowed + denied)
+        await logAccess({
+            userId,
+            fileId,
+            action: 'view',
+            result: 'allowed'
+        });
 
         res.status(200).json({
             ...file,
@@ -125,6 +154,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
         // DAC enforcement: only owner can delete
         if (file.owner_id !== userId) {
+            await logAccess({
+                userId,
+                fileId,
+                action: 'delete',
+                result: 'denied',
+                reason: 'only_owner_can_delete'
+            });
             return res.status(403).json({ error: 'Access denied: only the file owner can delete' });
         }
 
@@ -164,6 +200,13 @@ router.patch('/:id/visibility', authMiddleware, async (req, res) => {
 
         // DAC enforcement: only owner can change visibility
         if (file.owner_id !== userId) {
+            await logAccess({
+                userId,
+                fileId,
+                action: 'visibility',
+                result: 'denied',
+                reason: 'only_owner_can_change_visibility'
+            });
             return res.status(403).json({ error: 'Access denied: only the file owner can change visibility' });
         }
 
@@ -178,6 +221,41 @@ router.patch('/:id/visibility', authMiddleware, async (req, res) => {
         });
     } catch (error) {
         console.error('Update visibility error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * GET /api/files/logs/denied
+ * Admin endpoint: fetch denied DAC decisions
+ */
+router.get('/logs/denied', authMiddleware, requireRole('admin'), async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT al.created_at,
+                    al.action,
+                    al.reason,
+                    u.username,
+                    f.filename
+             FROM access_logs al
+             LEFT JOIN users u ON u.id = al.user_id
+             LEFT JOIN files f ON f.id = al.file_id
+             WHERE al.result = 'denied'
+             ORDER BY al.created_at DESC
+             LIMIT 50`
+        );
+
+        res.status(200).json(
+            (rows || []).map((r) => ({
+                time: r.created_at,
+                action: r.action,
+                reason: r.reason,
+                user: r.username || 'Unknown',
+                filename: r.filename || 'Unknown file'
+            }))
+        );
+    } catch (error) {
+        console.error('Denied access logs error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
