@@ -32,6 +32,11 @@
           <span id="reason">Try signing in with the correct role.</span>
         </div>
 
+        <div id="rbac-details" style="display:none; margin-top: 1rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--muted);">
+          <div style="font-weight:600; margin-bottom: 0.5rem;">Access Context</div>
+          <div id="rbac-details-text" style="color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6;"></div>
+        </div>
+
         <div class="space-y-4">
           <button class="btn btn-primary btn-full" type="button" onclick="goDashboard()">Go to my dashboard</button>
           <button class="btn btn-outline btn-full" type="button" onclick="logout()">Sign out</button>
@@ -64,6 +69,23 @@
       const params = new URLSearchParams(window.location.search);
       const msg = params.get('reason');
       if (msg) document.getElementById('reason').textContent = msg;
+
+      const required = params.get('required');
+      const attempted = params.get('attempted');
+      const userRole = params.get('userRole') || params.get('user_role') || sessionStorage.getItem('role');
+
+      if (required || attempted || userRole) {
+        const safeRequired = required || '—';
+        const safeAttempted = attempted || userRole || '—';
+        const safeUserRole = userRole || '—';
+
+        const rbEl = document.getElementById('rbac-details');
+        const txtEl = document.getElementById('rbac-details-text');
+        if (rbEl && txtEl) {
+          txtEl.textContent = `Required: ${safeRequired}. Attempted as: ${safeAttempted}. Your role: ${safeUserRole}.`;
+          rbEl.style.display = 'block';
+        }
+      }
     })();
   </script>
 </body>

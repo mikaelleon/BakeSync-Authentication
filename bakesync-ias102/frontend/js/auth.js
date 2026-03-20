@@ -256,7 +256,7 @@ function clearAllFieldErrors() {
 
     let seconds = 600; // fallback if reg_expires_at isn't present
     const regExpiresAt = sessionStorage.getItem('reg_expires_at');
-    const regExpiresAtMs = regExpiresAt ? new Date(regExpiresAt).getTime() : null;
+    let regExpiresAtMs = regExpiresAt ? new Date(regExpiresAt).getTime() : null;
     if (regExpiresAt) {
         const msLeft = regExpiresAtMs - Date.now();
         seconds = Math.max(0, Math.ceil(msLeft / 1000));
@@ -305,6 +305,9 @@ function clearAllFieldErrors() {
         lockoutUntilMs = new Date(lockedUntilIso).getTime();
         // Backend lockout clears otp_code/otp_expires_at, so reflect as expired in UI.
         seconds = 0;
+        // Prevent countdown from "reverting" to the old expiry after lockout starts.
+        sessionStorage.removeItem('reg_expires_at');
+        regExpiresAtMs = null;
         updateTimerDisplay();
         updateVerifyEnabled();
         updateResendEnabled();
@@ -479,7 +482,8 @@ function clearAllFieldErrors() {
                 // Reset server-synced timer + resend cooldown.
                 if (data.expiresAt) {
                     sessionStorage.setItem('reg_expires_at', data.expiresAt);
-                    const msLeft = new Date(data.expiresAt).getTime() - Date.now();
+                    regExpiresAtMs = new Date(data.expiresAt).getTime();
+                    const msLeft = regExpiresAtMs - Date.now();
                     seconds = Math.max(0, Math.ceil(msLeft / 1000));
                 }
 

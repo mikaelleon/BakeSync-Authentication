@@ -34,7 +34,7 @@ async function loadAdminDashboard() {
     // Frontend guard (backend also enforces RBAC)
     const me = getCurrentUser();
     if (me.role !== 'admin') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Manager dashboard is restricted to Admin (Manager) role.')}`;
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Manager dashboard is restricted to Admin (Manager) role.')}&required=${encodeURIComponent('admin')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         return;
     }
 
@@ -78,7 +78,7 @@ async function loadAdminDashboard() {
             logout();
         }
         if (String(error.message || '').toLowerCase().includes('forbidden')) {
-            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
+            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}&required=${encodeURIComponent('admin')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         }
     }
 }
@@ -92,7 +92,7 @@ async function loadStaffDashboard() {
     initNavbar();
     const me = getCurrentUser();
     if (me.role !== 'staff') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Baker dashboard is restricted to Staff (Baker) role.')}`;
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Baker dashboard is restricted to Staff (Baker) role.')}&required=${encodeURIComponent('staff')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         return;
     }
 
@@ -125,7 +125,7 @@ async function loadStaffDashboard() {
             logout();
         }
         if (String(error.message || '').toLowerCase().includes('forbidden')) {
-            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
+            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}&required=${encodeURIComponent('staff')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         }
     }
 }
@@ -139,7 +139,7 @@ async function loadUserDashboard() {
     initNavbar();
     const me = getCurrentUser();
     if (me.role !== 'user') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Cashier dashboard is restricted to User (Cashier) role.')}`;
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Cashier dashboard is restricted to User (Cashier) role.')}&required=${encodeURIComponent('user')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         return;
     }
 
@@ -172,7 +172,7 @@ async function loadUserDashboard() {
             logout();
         }
         if (String(error.message || '').toLowerCase().includes('forbidden')) {
-            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}`;
+            window.location.href = `access-denied.html?reason=${encodeURIComponent('You do not have permission to access this dashboard.')}&required=${encodeURIComponent('user')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         }
     }
 }
@@ -1221,7 +1221,7 @@ async function loadAdminDashboard() {
     if (!requireAuth()) return;
     const me = getCurrentUser();
     if (me.role !== 'admin') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Manager dashboard is restricted to Admin (Manager) role.')}`;
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Manager dashboard is restricted to Admin (Manager) role.')}&required=${encodeURIComponent('admin')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         return;
     }
 
@@ -1241,7 +1241,7 @@ async function loadStaffDashboard() {
     if (!requireAuth()) return;
     const me = getCurrentUser();
     if (me.role !== 'staff') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Baker dashboard is restricted to Staff (Baker) role.')}`;
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Baker dashboard is restricted to Staff (Baker) role.')}&required=${encodeURIComponent('staff')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         return;
     }
 
@@ -1261,7 +1261,7 @@ async function loadUserDashboard() {
     if (!requireAuth()) return;
     const me = getCurrentUser();
     if (me.role !== 'user') {
-        window.location.href = `access-denied.html?reason=${encodeURIComponent('Cashier dashboard is restricted to User (Cashier) role.')}`;
+        window.location.href = `access-denied.html?reason=${encodeURIComponent('Cashier dashboard is restricted to User (Cashier) role.')}&required=${encodeURIComponent('user')}&attempted=${encodeURIComponent(me.role)}&userRole=${encodeURIComponent(me.role)}`;
         return;
     }
 
