@@ -5,13 +5,33 @@ const pool = require('../config/db');
 
 const router = express.Router();
 
+async function safeScalar(sql, params = [], fallback = 0) {
+    try {
+        const [rows] = await pool.execute(sql, params);
+        const first = rows && rows[0] ? rows[0] : null;
+        if (!first) return fallback;
+        const val = Object.values(first)[0];
+        return val === null || val === undefined ? fallback : val;
+    } catch (e) {
+        return fallback;
+    }
+}
+
+async function safeRows(sql, params = []) {
+    try {
+        const [rows] = await pool.execute(sql, params);
+        return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+        return [];
+    }
+}
+
 /**
  * GET /api/dashboard/admin
  * Admin dashboard data - requires admin role
  */
 router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
     try {
-<<<<<<< HEAD
         const totalUsers = await safeScalar(
             'SELECT COUNT(*) AS totalUsers FROM users WHERE is_verified = 1'
         );
@@ -67,14 +87,9 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
             type: 'upload',
             time: f.created_at,
         }));
-=======
-        const [userCount] = await pool.execute('SELECT COUNT(*) as count FROM users');
-        const [fileCount] = await pool.execute('SELECT COUNT(*) as count FROM files');
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
 
         res.status(200).json({
             stats: {
-<<<<<<< HEAD
                 totalFiles: Number(totalFiles) || 0,
                 totalUsers: Number(totalUsers) || 0,
                 publicRecipes: Number(publicRecipes) || 0,
@@ -88,22 +103,6 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
             },
             recentActivity,
         });
-=======
-                totalUsers: userCount[0].count,
-                totalFiles: fileCount[0].count,
-                systemAlerts: 3
-            },
-            recentActivity: [
-                { action: 'New user registered', user: 'baker_carlos', time: '2 hours ago' },
-                { action: 'File uploaded', user: 'cashier_ana', time: '3 hours ago' },
-                { action: 'Recipe updated', user: 'baker_juan', time: '5 hours ago' },
-                { action: 'Monthly report generated', user: 'manager_maria', time: '1 day ago' },
-                { action: 'System backup completed', user: 'system', time: '1 day ago' }
-            ]
-        };
-
-        res.status(200).json(dashboardData);
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
     } catch (error) {
         console.error('Admin dashboard error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -116,7 +115,6 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
  */
 router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
     try {
-<<<<<<< HEAD
         const userId = req.user.id;
 
         const myRecipes = await safeScalar(
@@ -131,25 +129,6 @@ router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
              FROM files
              WHERE file_type = 'schedule' AND is_public = 1`
         );
-=======
-        const [recipeCount] = await pool.execute(
-            "SELECT COUNT(*) as count FROM files WHERE file_type = 'recipe'"
-        );
-
-        const dashboardData = {
-            stats: {
-                recipesManaged: recipeCount[0].count,
-                productionToday: 47
-            },
-            schedule: [
-                { time: '06:00 AM', task: 'Start bread dough preparation', status: 'completed' },
-                { time: '07:30 AM', task: 'Bake croissants batch 1', status: 'completed' },
-                { time: '09:00 AM', task: 'Prepare cake orders', status: 'in_progress' },
-                { time: '11:00 AM', task: 'Lunch pastries production', status: 'pending' },
-                { time: '02:00 PM', task: 'Special orders preparation', status: 'pending' }
-            ]
-        };
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
 
         const myRecipesAddedThisMonth = await safeScalar(
             `SELECT COUNT(*) AS myRecipesAddedThisMonth
@@ -224,7 +203,6 @@ router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
  */
 router.get('/user', authMiddleware, requireRole('user'), async (req, res) => {
     try {
-<<<<<<< HEAD
         const userId = req.user.id;
 
         const myInvoices = await safeScalar(
@@ -280,11 +258,6 @@ router.get('/user', authMiddleware, requireRole('user'), async (req, res) => {
                 myInvoices: Number(myInvoices) || 0,
                 myReports: Number(myReports) || 0,
                 sharedDocs: Number(sharedDocs) || 0,
-=======
-        const dashboardData = {
-            stats: {
-                ordersToday: 23
->>>>>>> parent of 2a9e917 (feat: enhance dashboard functionality and UI improvements)
             },
             trends: {
                 myInvoicesThisMonth: Number(myInvoicesThisMonth) || 0,
