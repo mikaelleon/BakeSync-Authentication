@@ -71,6 +71,8 @@ function iconSvg(name, colorClass = '') {
       return `<svg ${common}><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     case 'log-out':
       return `<svg ${common}><path d="M10 17l-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 3h-4a2 2 0 0 0-2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 21h-4a2 2 0 0 1-2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    case 'settings':
+      return `<svg ${common}><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a7.7 7.7 0 0 0 .1-2l2-1.2-2-3.5-2.3.7a7.6 7.6 0 0 0-1.7-1L15 3h-6l-.5 4.2a7.6 7.6 0 0 0-1.7 1L4.5 7.5l-2 3.5 2 1.2a7.7 7.7 0 0 0 .1 2l-2 1.2 2 3.5 2.3-.7a7.6 7.6 0 0 0 1.7 1L9 21h6l.5-4.2a7.6 7.6 0 0 0 1.7-1l2.3.7 2-3.5-2-1.2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
     default:
       return `<svg ${common}><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/></svg>`;
   }
@@ -190,6 +192,11 @@ function renderSidebarContent() {
             </div>
           </div>
         </div>
+
+        <a class="sidebar-settings" href="profile.html">
+          <span class="sidebar-settings-icon" aria-hidden="true">${iconSvg('settings')}</span>
+          <span class="sidebar-settings-text">Settings</span>
+        </a>
 
         <button class="sidebar-signout" type="button" id="sidebar-signout-btn">
           <span class="sidebar-signout-icon" aria-hidden="true">${iconSvg('log-out')}</span>

@@ -1080,9 +1080,17 @@ input[type="checkbox"] {
 }
 
 .sidebar.collapsed .sidebar-user-card .sidebar-user-meta,
-.sidebar.collapsed .sidebar-signout-text {
+.sidebar.collapsed .sidebar-signout-text,
+.sidebar.collapsed .sidebar-settings-text {
     opacity: 0;
     width: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.sidebar.collapsed .sidebar-settings {
+    opacity: 0;
+    height: 0;
     overflow: hidden;
     pointer-events: none;
 }
@@ -1163,6 +1171,37 @@ input[type="checkbox"] {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.sidebar-settings {
+    width: 100%;
+    justify-content: flex-start;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--foreground);
+}
+
+.sidebar-settings:hover {
+    background: rgba(0,0,0,0.02);
+    border-color: rgba(0,0,0,0.06);
+}
+
+.sidebar-settings-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+}
+
+.sidebar-settings-text {
+    font-weight: 600;
 }
 
 /* Tabs (dashboard strip) */

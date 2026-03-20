@@ -16,7 +16,6 @@
                 <div class="topbar-right">
                     <span class="topbar-username" id="topbar-username"></span>
                     <span class="topbar-role-badge" id="topbar-role-badge"></span>
-                    <button class="btn btn-ghost btn-sm topbar-logout" id="topbar-logout" type="button">Sign Out</button>
                 </div>
             </header>
 
@@ -32,10 +31,8 @@
         const user = getCurrentUser();
         const usernameEl = document.getElementById('topbar-username');
         const roleEl = document.getElementById('topbar-role-badge');
-        const logoutBtn = document.getElementById('topbar-logout');
         if (usernameEl) usernameEl.textContent = user.username || '';
         if (roleEl) roleEl.textContent = getRoleDisplayName(user.role);
-        if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
         initSidebar();
         setActiveNavItem();
