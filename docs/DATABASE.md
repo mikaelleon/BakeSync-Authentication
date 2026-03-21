@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin', 'staff', 'user') NOT NULL,
-    -- OTP is reused for both email verification and account deletion confirmation
-    otp_code VARCHAR(6) DEFAULT NULL,
+    -- OTP (6 digits) for registration / account deletion; password reset reuses this column for a hex reset token
+    otp_code VARCHAR(128) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
     -- Brute-force protection for OTP verification
     otp_attempts INT NOT NULL DEFAULT 0,
@@ -171,6 +171,21 @@ CREATE TABLE IF NOT EXISTS access_logs (
 
 ---
 
+## 2.1 Widen `users.otp_code` (existing databases)
+
+Registration and deletion use a **6-digit** OTP in `users.otp_code`. The **password reset** flow reuses the same column to store a **64-character** hex reset token after the email OTP is verified. If your database was created with `otp_code VARCHAR(6)`, widen it or resets will fail silently (truncation).
+
+**File:** `database/migrations/widen_otp_code_password_reset.sql`
+
+```sql
+USE defaultdb;
+ALTER TABLE users MODIFY COLUMN otp_code VARCHAR(128) DEFAULT NULL;
+```
+
+Fresh installs from `schema.sql` / `full_database.sql` in this repo already use `VARCHAR(128)`.
+
+---
+
 ## 3. Optional migration — drop mistaken deletion OTP columns
 
 **File:** `database/migrations/cleanup_drop_delete_otp_columns.sql`
@@ -213,7 +228,7 @@ ALTER TABLE files DROP COLUMN file_url;
 
 | Table         | Purpose |
 |---------------|---------|
-| **users**     | Accounts, bcrypt hash, role, OTP + lockout fields, `is_verified` |
+| **users**     | Accounts, bcrypt hash, role, `otp_*` fields (registration / deletion OTP, password-reset token), `is_verified` |
 | **files**     | Document metadata, DAC (`owner_id`, `is_public`), `file_type` |
 | **access_logs** | DAC audit: action, result, reason, optional `user_id` / `file_id` |
 

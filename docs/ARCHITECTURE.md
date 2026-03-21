@@ -47,7 +47,7 @@ graph TB
   end
 
   subgraph Email["Resend"]
-    SMTP["Transactional Email<br/>OTP Verification"]
+    SMTP["Transactional Email<br/>Registration OTP, deletion OTP,<br/>password reset OTP"]
   end
 
   FE --> JS
@@ -57,8 +57,8 @@ graph TB
   MW --> FILES
   MW --> USERS
   AUTH -->|"bcrypt verify<br/>JWT sign"| USERS_T
-  AUTH -->|"OTP store/verify"| USERS_T
-  AUTH -->|"sendOTPEmail()"| SMTP
+  AUTH -->|"OTP / reset token<br/>in users.otp_* fields"| USERS_T
+  AUTH -->|"sendOTPEmail()<br/>sendPasswordResetOTPEmail()<br/>sendAccountDeletionOTPEmail()"| SMTP
   DASH -->|"COUNT queries"| USERS_T
   DASH -->|"COUNT queries"| FILES_T
   FILES -->|"CRUD"| FILES_T
@@ -102,6 +102,19 @@ sequenceDiagram
   BE ->> BE: jwt.sign({ id, role, username })
   BE -->> FE: 200 { token, role, username }
   FE ->> U: Redirect to role dashboard
+
+  Note over U,EM: Password reset (verified accounts only)
+
+  U ->> FE: Forgot password — enter email
+  FE ->> BE: POST /api/auth/forgot-password
+  BE ->> DB: Store reset OTP in otp_code / otp_expires_at
+  BE ->> EM: sendPasswordResetOTPEmail(email, username, otp)
+  EM -->> U: Email with 6-digit code
+  FE ->> BE: POST /api/auth/verify-reset-otp
+  BE -->> FE: { resetToken }
+  FE ->> BE: POST /api/auth/reset-password
+  BE ->> DB: bcrypt hash; clear reset state
+  FE ->> U: Close modal; sign in with new password
 ```
 
 ## Authorization Model
@@ -184,7 +197,7 @@ BakeSync/
 │   │   │   ├── rbac.js         # Role checking
 │   │   │   └── csrf.js         # Origin validation
 │   │   ├── routes/
-│   │   │   ├── auth.js         # Register, login, OTP
+│   │   │   ├── auth.js         # Register, login, OTP, forgot/reset password
 │   │   │   ├── dashboard.js    # Role-specific stats
 │   │   │   ├── files.js        # DAC file management
 │   │   │   └── users.js        # Profile, deletion
@@ -205,7 +218,7 @@ BakeSync/
 │   │   └── profile.html
 │   ├── js/
 │   │   ├── api.js              # API request wrapper
-│   │   ├── auth.js             # Login/register handlers
+│   │   ├── auth.js             # Login, register, OTP, forgot-password UI
 │   │   ├── config.js           # API base URL
 │   │   ├── dashboard.js        # Dashboard loaders
 │   │   ├── files.js            # File management

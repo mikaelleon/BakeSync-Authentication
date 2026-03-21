@@ -9,15 +9,26 @@ This document describes the **static frontend** under `frontend/` at the reposit
 
 ## Conventions and runtime model
 
-### Auth storage (sessionStorage)
-The frontend uses `sessionStorage` for:
+### Auth storage (`sessionStorage` + optional `localStorage`)
+
+**Primary session (every successful login):** `sessionStorage`
 - `token` (JWT)
 - `role` (`admin` | `staff` | `user`)
 - `username`
 
-Key helpers are in:
-- `frontend/js/api.js`
-  - `isAuthenticated()`, `getCurrentUser()`, `requireAuth()`, `logout()`
+**Remember me (login checkbox):** When checked, `frontend/js/api.js` also mirrors the same credentials into `localStorage` under:
+- `bakesync_token`, `bakesync_role`, `bakesync_username`
+- `bakesync_session_persist` — flag set to `1` while a persistent session is intended
+
+On load, `api.js` runs `restorePersistedSession()`: if the tab has no `sessionStorage.token` but `bakesync_session_persist` is set and `bakesync_token` exists, the token/role/username are copied back into `sessionStorage` so `index.html` and dashboards work after closing the browser.
+
+**Logout and expired JWT:** `logout()` and the `401` handler in `apiRequest()` call `clearPersistedSession()` so mirrored tokens are removed; `sessionStorage` is cleared as before (full clear on `401`).
+
+**Login form username only:** `localStorage` key `bakesync_remember_username` (managed in `auth.js` → `initRememberMe()` / `handleLogin`) pre-fills the username when the user previously chose Remember me; this is independent of the mirrored JWT keys above but uses the same checkbox.
+
+Key helpers in `frontend/js/api.js`:
+- `isAuthenticated()`, `getCurrentUser()`, `requireAuth()`, `logout()`
+- `persistLoginSession(loginPayload, rememberMe)` — used from `handleLogin()` after a successful login
 
 ### API base URL
 The frontend calls the backend through:
@@ -247,10 +258,13 @@ On success:
 ## Feature-specific API mapping (frontend -> backend)
 
 ### Auth
-- `POST /api/auth/login` (handled in `frontend/js/auth.js` -> `handleLogin`)
-- `POST /api/auth/register` (handled in `frontend/js/auth.js` -> `handleRegister`)
-- `POST /api/auth/verify-otp` (handled in `auth.js` OTP init block)
-- `POST /api/auth/resend-otp` (handled in `auth.js` OTP init block)
+- `POST /api/auth/login` (`frontend/js/auth.js` → `handleLogin`; calls `persistLoginSession` from `api.js` when Remember me is checked)
+- `POST /api/auth/register` (`auth.js` → `handleRegister`)
+- `POST /api/auth/verify-otp` (`auth.js` OTP init block)
+- `POST /api/auth/resend-otp` (`auth.js` OTP init block)
+- `POST /api/auth/forgot-password` (`auth.js` → `sendResetOTP()`, from forgot-password modal)
+- `POST /api/auth/verify-reset-otp` (`auth.js` → `verifyResetOTP()`)
+- `POST /api/auth/reset-password` (`auth.js` → `resetPassword()`)
 
 ### Profile / settings
 - `GET /api/users/me` (handled in `frontend/js/profile.js` -> `loadProfile`)
@@ -273,6 +287,8 @@ Purpose:
   - If `isAuthenticated()`: redirect to role dashboard
   - Else: redirect to `login.html`
 
+Loads `api.js` before the inline script so `restorePersistedSession()` has run; `sessionStorage` then contains token/role if the user previously signed in with **Remember me**.
+
 Role mapping:
 - `admin` -> `dashboard-admin.html`
 - `staff` -> `dashboard-staff.html`
@@ -280,11 +296,15 @@ Role mapping:
 
 ## `frontend/pages/login.html`
 Purpose:
-- Username/password login form.
+- Username/password login with optional persistence, password visibility, and forgot-password (email OTP + new password).
 
 Key elements:
 - Form: `#login-form` calling `handleLogin(event)` via `onsubmit`
-- Error alert elements: `#error-alert`, `#error-message`
+- **Remember me:** `#remember-me` — saves username to `bakesync_remember_username` and, when checked, persists JWT/role/username via `persistLoginSession()` (see Auth storage above)
+- **Password visibility:** `.password-input-wrapper` + `.password-toggle-btn` with `data-target="password"`; `initPasswordToggles()` in `auth.js` (buttons use `data-password-toggle-bound` so handlers are not duplicated when the forgot modal re-inits toggles)
+- **Forgot password:** link `#forgot-password-link` opens `#forgot-modal` (multi-step: email → OTP → new password + confirm). Functions: `initForgotPassword()`, `openForgotModal()`, `sendResetOTP()`, `verifyResetOTP()`, `resetPassword()`. Step state uses `sessionStorage.reset_email` and an in-memory `forgotResetToken` for the final API call.
+
+Error / info alerts: `#error-alert`, `#success-alert`, `#login-info` (e.g. session expired via `?expired=true`).
 
 Data flow (`auth.js`):
 - Calls `POST ${API_BASE}/api/auth/login`
@@ -292,9 +312,13 @@ Data flow (`auth.js`):
   - stores `reg_userId`, `reg_username` in `sessionStorage`
   - redirects to `otp.html`
 
+Scripts on load: `checkRegistrationSuccess()`, `initPasswordToggles()`, `initForgotPassword()`, `initRememberMe()`.
+
 ## `frontend/pages/register.html`
 Purpose:
 - Creates a new user with role selection.
+
+**Password fields:** password and confirm-password use the same `.password-input-wrapper` / toggle pattern as login; `initPasswordToggles()` runs on load.
 
 Form handler (`auth.js`):
 - `#register-form` -> `handleRegister(event)`
@@ -409,7 +433,7 @@ JavaScript (`profile.js`):
 - Delete:
   - request OTP button calls `POST /api/users/me/delete/request-otp`
   - confirm form calls `POST /api/users/me/delete/confirm` with `{ otp }`
-  - clears `sessionStorage` and returns to `login.html`
+  - clears `sessionStorage` and returns to `login.html` (use `logout()` if you need persisted-session keys cleared too)
 
 ## Legacy UI pages (stubs / placeholders)
 
@@ -429,6 +453,7 @@ They exist so sidebar navigation demonstrates the full ERP-style structure while
 ## CSS and UI patterns (where to look)
 
 - Shared styling: `frontend/css/style.css`
+  - Auth: `.password-input-wrapper`, `.password-toggle-btn`, `.remember-row`, forgot-password modal classes (e.g. `.forgot-modal`, `.forgot-step`)
   - Sidebar: `.sidebar`, `.sidebar.collapsed`, tooltips, mobile overlay, `.sidebar-signout`, `.sidebar-user-role`
   - Topbar: `.topbar`, `.breadcrumb`, `.theme-toggle` / `.theme-icon-moon` / `.theme-icon-sun`
   - Dark theme: `:root[data-theme="dark"]` token overrides

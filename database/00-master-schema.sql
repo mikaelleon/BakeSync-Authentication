@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin', 'staff', 'user') NOT NULL,
-    otp_code VARCHAR(6) DEFAULT NULL,
+    otp_code VARCHAR(128) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
     is_verified TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

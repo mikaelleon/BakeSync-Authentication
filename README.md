@@ -8,8 +8,8 @@ This project demonstrates core security concepts for the IAS102 course:
 
 - **RBAC** (Role-Based Access Control): Admin / Staff / User roles
 - **DAC** (Discretionary Access Control): File ownership with public/private visibility
-- **MFA/OTP**: Email OTP verification for registration and account deletion
-- **JWT Authentication**: Stateless token-based session management
+- **MFA/OTP**: Email OTP for registration, account deletion, and **password reset** (forgot-password flow)
+- **JWT Authentication**: Stateless token-based session management; optional **Remember me** persists the session in the browser across visits (see `docs/FRONTEND.md`)
 
 ## Project Structure
 
@@ -54,6 +54,9 @@ BakeSync/
 - **POST** `/api/auth/verify-otp` - Verify email OTP
 - **POST** `/api/auth/resend-otp` - Resend OTP code
 - **POST** `/api/auth/login` - Login and receive JWT
+- **POST** `/api/auth/forgot-password` - Request password-reset OTP (generic success message; email only if account exists)
+- **POST** `/api/auth/verify-reset-otp` - Verify reset OTP; returns short-lived `resetToken`
+- **POST** `/api/auth/reset-password` - Set new password with `email`, `resetToken`, and `newPassword`
 
 ### Dashboards (RBAC Protected)
 - **GET** `/api/dashboard/admin` - Admin only
@@ -101,7 +104,7 @@ BakeSync/
 
 Run **`database/schema.sql`** or **`database/full_database.sql`** on your MySQL instance (same schema and seeds; `full_database.sql` is the all-in-one script with a short header).
 
-Optional: `database/migrations/` may contain one-off scripts (for example, rolling back optional columns if you experimented with file-storage fields). Apply only what matches your live schema.
+Optional: `database/migrations/` includes one-off scripts (e.g. `widen_otp_code_password_reset.sql` if an older DB still has `otp_code VARCHAR(6)`, rollback helpers for experimental file-storage columns). Apply only what matches your live schema.
 
 ### 2. Backend Setup
 

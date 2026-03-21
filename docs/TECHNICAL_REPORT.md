@@ -10,9 +10,9 @@
 
 This report documents the design and implementation of the BakeSync IAS102 authentication and access control system. BakeSync is a bakery management application that demonstrates core security concepts for the IAS102 course. The system provides a practical example of how modern web applications protect user accounts and control access to resources.
 
-The prototype implements four security mechanisms that work together to protect the application. Password-based authentication uses bcrypt hashing to store credentials securely. Multi-factor authentication via email OTP adds a second verification layer during registration. Role-Based Access Control restricts dashboard features based on user roles such as Admin, Staff, and User. Discretionary Access Control allows file owners to decide whether their documents are private or public.
+The prototype implements several security mechanisms that work together to protect the application. Password-based authentication uses bcrypt hashing to store credentials securely. Multi-factor authentication via email OTP adds a second verification layer during registration. A separate **password recovery** flow emails a one-time code to verified users so they can set a new password without the old one. Role-Based Access Control restricts dashboard features based on user roles such as Admin, Staff, and User. Discretionary Access Control allows file owners to decide whether their documents are private or public.
 
-The backend uses Node.js with Express and connects to a MySQL database hosted on Aiven Cloud. The frontend consists of static HTML pages with JavaScript that communicate with the backend through REST API calls. Interface behavior (navigation shell, theme toggle, breadcrumbs, Document Manager) is summarized in **`docs/FRONTEND.md`**. The Resend SDK handles transactional email delivery for OTP verification codes.
+The backend uses Node.js with Express and connects to a MySQL database hosted on Aiven Cloud. The frontend consists of static HTML pages with JavaScript that communicate with the backend through REST API calls. Interface behavior (navigation shell, theme toggle, breadcrumbs, Document Manager) is summarized in **`docs/FRONTEND.md`**. The Resend SDK handles transactional email for registration OTPs, account-deletion confirmation codes, and password-reset codes (`sendOTPEmail`, `sendAccountDeletionOTPEmail`, `sendPasswordResetOTPEmail` in `backend/src/utils/mailer.js`).
 
 ---
 
@@ -25,6 +25,10 @@ The system stores passwords securely using the bcryptjs library. When a user reg
 The login flow begins when a user submits their username and password. The backend queries the users table to find a matching username. If no user exists, it returns a generic "Invalid credentials" error. This prevents attackers from discovering valid usernames through error messages. The system then uses bcrypt.compare() to check the submitted password against the stored hash. This comparison runs in constant time to prevent timing attacks. If the password matches and the account has is_verified set to 1, the backend issues a JSON Web Token.
 
 The JWT contains three claims: the user ID, username, and role. The token expires after 2 hours, which limits the window for misuse if a token is stolen. The backend signs tokens using a secret key stored in the JWT_SECRET environment variable. The payload is base64 encoded but not encrypted, so the system avoids storing sensitive data in the token.
+
+The web client stores the issued JWT in **sessionStorage** for API calls. An optional **Remember me** checkbox on the login form also mirrors the token, role, and username into **localStorage** so the session can be restored on a later visit without signing in again; this is a convenience feature for the prototype and increases the impact of client-side token theft (see vulnerability V02).
+
+Login and registration forms include **show/hide password** toggles for usability only; they do not change how credentials are transmitted or hashed.
 
 ### 2.2 Multi-Factor Authentication (Email OTP)
 
@@ -39,6 +43,10 @@ Brute-force protection limits OTP guessing attacks. The otp_attempts column trac
 **Reflection Question 1: Why is MFA more secure than password-only authentication?**
 
 MFA provides stronger security because it requires proof from two different authentication factors. Passwords are something you know, while email access is something you have. An attacker who steals a password through phishing or a data breach still cannot log in without access to the registered email account. The 6-digit OTP has one million possible combinations, and the 5-attempt lockout makes guessing impractical. The 10-minute expiry window limits the time for interception attacks. Together, these layers create defense in depth that single-factor authentication cannot provide.
+
+### 2.3 Password recovery (email OTP)
+
+Users who forget their password can start a reset from the login page. They enter their **email**; the backend responds with a generic success message whether or not the email exists (mitigating email enumeration). For verified accounts, the server stores a short-lived numeric OTP in the same `users.otp_code` / `otp_expires_at` fields used for registration MFA, sends the code via **sendPasswordResetOTPEmail**, and the user enters it in the UI. After verification, the backend issues a **reset token** (stored temporarily in `otp_code` with an expiry in `otp_expires_at`) that must accompany the new password on **POST /api/auth/reset-password**. The password is re-hashed with bcrypt and reset state is cleared. This flow reuses existing columns rather than adding a separate password-reset table, which keeps the schema small but means reset and registration OTP logic must stay carefully separated in code.
 
 ---
 
@@ -84,7 +92,7 @@ The Document Manager page (`files.html`) explains in copy that DAC rules apply w
 
 The system uses a two-tier architecture separating the frontend from the backend. The frontend consists of static HTML, CSS, and JavaScript files served by Render Static Site. The backend runs as a Node.js Express application on Render Web Service. These services communicate through HTTPS REST API calls.
 
-The authentication flow follows this sequence: browser sends credentials to /api/auth/login, the backend verifies against the MySQL database, and returns a signed JWT on success. For subsequent requests, the frontend includes the JWT in the Authorization header as a Bearer token. The authMiddleware extracts and verifies this token before passing requests to route handlers.
+The authentication flow follows this sequence: browser sends credentials to `/api/auth/login`, the backend verifies against the MySQL database, and returns a signed JWT on success. Optional recovery uses `/api/auth/forgot-password`, `/api/auth/verify-reset-otp`, and `/api/auth/reset-password`. For subsequent requests, the frontend includes the JWT in the Authorization header as a Bearer token. The authMiddleware extracts and verifies this token before passing requests to route handlers.
 
 The deployment stack uses three cloud services. Render Static Site hosts the frontend files at bakesync-frontend.onrender.com. Render Web Service runs the backend at bakesync-authentication.onrender.com. Aiven MySQL hosts the database in the asia-southeast1 region with SSL encryption for connections.
 
@@ -94,7 +102,7 @@ The backend middleware chain processes requests in order. The CORS middleware al
 
 ## 6. Database Design
 
-The schema defines three tables that work together for authentication and access control. The users table stores account credentials and OTP state with 11 columns including password_hash, role, otp_code, otp_expires_at, otp_attempts, and otp_locked_until. The files table stores document metadata with owner_id referencing users. The access_logs table records DAC audit entries with foreign keys to both users and files.
+The schema defines three tables that work together for authentication and access control. The users table stores account credentials and OTP state with 11 columns including password_hash, role, otp_code (wide enough to hold either a 6-digit OTP or a password-reset hex token), otp_expires_at, otp_attempts, and otp_locked_until. The files table stores document metadata with owner_id referencing users. The access_logs table records DAC audit entries with foreign keys to both users and files.
 
 Foreign key constraints maintain referential integrity. The files.owner_id column references users.id with ON DELETE CASCADE, so deleting a user removes their files. The access_logs table uses ON DELETE SET NULL for both user_id and file_id. This preserves audit records even when the referenced user or file is deleted.
 
@@ -110,7 +118,7 @@ The prototype has eight documented security vulnerabilities that would need fixe
 
 **V01: Non-cryptographic OTP generation.** The generateOTP() function uses Math.random() which is not cryptographically secure. JavaScript Math.random() uses a predictable algorithm that could allow attackers to guess future OTP values if they understand the internal state. The real-world impact is that a sophisticated attacker could reduce the 6-digit search space significantly.
 
-**V02: JWT stored in sessionStorage.** The frontend stores JWT tokens in browser sessionStorage which is accessible to JavaScript. This makes tokens vulnerable to cross-site scripting attacks. If an attacker injects malicious JavaScript into the page, they can steal the token and impersonate the user.
+**V02: JWT stored in sessionStorage (and optionally localStorage).** The frontend stores JWT tokens in browser sessionStorage, which is accessible to JavaScript and vulnerable to cross-site scripting (XSS). If **Remember me** was used, a copy of the token also sits in localStorage until logout or session expiry handling clears it, so theft or residual access can persist across browser sessions—not only the current tab.
 
 **V03: Missing SSL certificate validation fallback.** The database configuration falls back to rejectUnauthorized: false when the CA certificate file is missing. This disables SSL certificate verification and allows man-in-the-middle attacks on the database connection. An attacker on the network path could intercept database traffic.
 
@@ -164,7 +172,7 @@ In a real bakery chain with hundreds of staff members, RBAC roles would remain m
 
 ## 10. Conclusion
 
-This project implemented a complete authentication and access control system for the BakeSync bakery management application. The system demonstrates password hashing with bcrypt, multi-factor authentication with email OTP, role-based access control with three user roles, and discretionary access control for file management. The audit logging system records all access decisions for security review.
+This project implemented a complete authentication and access control system for the BakeSync bakery management application. The system demonstrates password hashing with bcrypt, multi-factor authentication with email OTP, email-based password recovery, role-based access control with three user roles, and discretionary access control for file management. The audit logging system records all access decisions for security review.
 
 The prototype successfully addresses IAS102 learning outcomes for authentication mechanisms, access control models, and security vulnerability analysis. The documented vulnerabilities provide concrete examples for the security analysis portion of the course. The proposed improvements show understanding of enterprise security requirements.
 

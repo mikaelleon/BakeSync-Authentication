@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin', 'staff', 'user') NOT NULL,
-    -- OTP is reused for both email verification and account deletion confirmation
-    otp_code VARCHAR(6) DEFAULT NULL,
+    -- OTP (6 digits) for registration / deletion; password reset stores a longer hex token in the same column
+    otp_code VARCHAR(128) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
     -- Brute-force protection for OTP verification
     otp_attempts INT NOT NULL DEFAULT 0,
