@@ -10,6 +10,12 @@ const router = express.Router();
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_LOCK_MINUTES = 15;
 
+/** Trim + lowercase for consistent email lookups (password reset). */
+function normalizeEmailInput(email) {
+    if (typeof email !== 'string') return '';
+    return email.trim().toLowerCase();
+}
+
 /**
  * POST /api/auth/register
  * Register a new user with email OTP verification
@@ -434,34 +440,36 @@ router.post('/login', async (req, res) => {
  */
 router.post('/forgot-password', async (req, res) => {
     try {
-        const { email } = req.body;
+        const normalizedEmail = normalizeEmailInput(req.body && req.body.email);
 
-        if (!email) {
+        if (!normalizedEmail) {
             return res.status(400).json({ error: 'Email is required' });
         }
 
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        if (!emailRegex.test(normalizedEmail)) {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
-        // Find verified user by email
         const [rows] = await pool.execute(
-            'SELECT id, username, email, is_verified FROM users WHERE email = ?',
-            [email]
+            'SELECT id, username, email, is_verified FROM users WHERE LOWER(TRIM(email)) = ?',
+            [normalizedEmail]
         );
 
-        // For security, always return success even if user not found
-        // This prevents email enumeration attacks
-        if (rows.length === 0 || rows[0].is_verified !== 1) {
-            // Still return success to prevent enumeration
-            return res.status(200).json({
-                message: 'If an account exists with this email, a reset code has been sent.'
+        if (rows.length === 0) {
+            return res.status(404).json({
+                error: 'No account found with this email address.'
             });
         }
 
         const user = rows[0];
+
+        if (user.is_verified !== 1) {
+            return res.status(403).json({
+                error:
+                    'This email is registered but the account is not verified yet. Complete sign-up before resetting your password.'
+            });
+        }
 
         // Generate OTP for password reset
         const otpCode = generateOTP();
@@ -484,7 +492,7 @@ router.post('/forgot-password', async (req, res) => {
         }
 
         res.status(200).json({
-            message: 'If an account exists with this email, a reset code has been sent.'
+            message: 'A reset code has been sent to your email.'
         });
     } catch (error) {
         console.error('[Auth] Forgot password error:', error && error.message ? error.message : error);
@@ -498,16 +506,16 @@ router.post('/forgot-password', async (req, res) => {
  */
 router.post('/verify-reset-otp', async (req, res) => {
     try {
-        const { email, otp } = req.body;
+        const { otp } = req.body;
+        const normalizedEmail = normalizeEmailInput(req.body && req.body.email);
 
-        if (!email || !otp) {
+        if (!normalizedEmail || !otp) {
             return res.status(400).json({ error: 'Email and OTP are required' });
         }
 
-        // Find user by email
         const [rows] = await pool.execute(
-            'SELECT id, username, otp_code, otp_expires_at, otp_attempts, otp_locked_until, is_verified FROM users WHERE email = ?',
-            [email]
+            'SELECT id, username, otp_code, otp_expires_at, otp_attempts, otp_locked_until, is_verified FROM users WHERE LOWER(TRIM(email)) = ?',
+            [normalizedEmail]
         );
 
         if (rows.length === 0) {
@@ -601,9 +609,10 @@ router.post('/verify-reset-otp', async (req, res) => {
  */
 router.post('/reset-password', async (req, res) => {
     try {
-        const { email, resetToken, newPassword } = req.body;
+        const { resetToken, newPassword } = req.body;
+        const normalizedEmail = normalizeEmailInput(req.body && req.body.email);
 
-        if (!email || !resetToken || !newPassword) {
+        if (!normalizedEmail || !resetToken || !newPassword) {
             return res.status(400).json({ error: 'Email, reset token, and new password are required' });
         }
 
@@ -611,10 +620,9 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
-        // Find user by email
         const [rows] = await pool.execute(
-            'SELECT id, otp_code, otp_expires_at, is_verified FROM users WHERE email = ?',
-            [email]
+            'SELECT id, otp_code, otp_expires_at, is_verified FROM users WHERE LOWER(TRIM(email)) = ?',
+            [normalizedEmail]
         );
 
         if (rows.length === 0) {

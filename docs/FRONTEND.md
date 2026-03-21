@@ -262,7 +262,7 @@ On success:
 - `POST /api/auth/register` (`auth.js` → `handleRegister`)
 - `POST /api/auth/verify-otp` (`auth.js` OTP init block)
 - `POST /api/auth/resend-otp` (`auth.js` OTP init block)
-- `POST /api/auth/forgot-password` (`auth.js` → `sendResetOTP()`, from forgot-password modal)
+- `POST /api/auth/forgot-password` (`auth.js` → `sendResetOTP()`, from forgot-password modal) — **404** if email not in DB, **403** if account not verified; **200** only when an OTP email is sent
 - `POST /api/auth/verify-reset-otp` (`auth.js` → `verifyResetOTP()`)
 - `POST /api/auth/reset-password` (`auth.js` → `resetPassword()`)
 

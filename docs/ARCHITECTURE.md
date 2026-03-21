@@ -107,6 +107,8 @@ sequenceDiagram
 
   U ->> FE: Forgot password — enter email
   FE ->> BE: POST /api/auth/forgot-password
+  BE ->> DB: SELECT user by email (trim, case-insensitive match)
+  Note over BE: 404 if unknown email, 403 if unverified — no OTP sent
   BE ->> DB: Store reset OTP in otp_code / otp_expires_at
   BE ->> EM: sendPasswordResetOTPEmail(email, username, otp)
   EM -->> U: Email with 6-digit code
