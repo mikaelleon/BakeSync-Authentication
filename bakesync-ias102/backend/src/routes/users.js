@@ -31,7 +31,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
         res.status(200).json(rows[0]);
     } catch (error) {
-        console.error('Get profile error:', error);
+        console.error('[Users] Profile error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -120,6 +120,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
         // Refresh JWT if username changed (token includes username)
         let token = null;
         if (nextUsername !== current.username) {
+            // Same JWT policy as login: minimal claims, 2h expiry (see auth routes).
             token = jwt.sign(
                 { id: user.id, username: user.username, role: user.role },
                 process.env.JWT_SECRET,
@@ -129,7 +130,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
 
         res.status(200).json({ message: 'Profile updated', user, token });
     } catch (error) {
-        console.error('Update profile error:', error);
+        console.error('[Users] Profile update error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -161,7 +162,7 @@ router.post('/me/delete/request-otp', authMiddleware, async (req, res) => {
 
         res.status(200).json({ message: 'Deletion code sent to your email.' });
     } catch (error) {
-        console.error('Request delete OTP error:', error);
+        console.error('[Users] Delete OTP request error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -205,7 +206,7 @@ router.post('/me/delete/confirm', authMiddleware, async (req, res) => {
 
         res.status(200).json({ message: 'Account deleted' });
     } catch (error) {
-        console.error('Confirm delete error:', error);
+        console.error('[Users] Delete confirm error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -255,6 +256,7 @@ router.post('/me/change-password', authMiddleware, async (req, res) => {
             });
         }
 
+        // bcrypt saltRounds=10 — same rationale as registration (see auth routes).
         const newHash = await bcrypt.hash(newPassword, 10);
         await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, userId]);
 
@@ -262,7 +264,7 @@ router.post('/me/change-password', authMiddleware, async (req, res) => {
             message: 'Password changed successfully.',
         });
     } catch (err) {
-        console.error('Change password error:', err);
+        console.error('[Users] Password change error:', err && err.message ? err.message : err);
         return res.status(500).json({ error: 'Failed to change password.' });
     }
 });

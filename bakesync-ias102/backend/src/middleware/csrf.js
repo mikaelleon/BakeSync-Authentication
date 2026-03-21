@@ -18,6 +18,15 @@ function getAllowedOrigins() {
 }
 
 function csrfProtect(req, res, next) {
+    // ── CSRF protection notes ────────────────────────────────────
+    // This is Origin-header validation, not a full CSRF token scheme.
+    // A proper implementation uses the Synchronizer Token Pattern:
+    //   1. Server generates a random token per session
+    //   2. Token is embedded in HTML forms
+    //   3. Server validates token on every state-changing request
+    // For this prototype, Origin validation provides a basic layer
+    // of protection suitable for the IAS102 security analysis section.
+
     // Only enforce for state-changing requests.
     if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
 

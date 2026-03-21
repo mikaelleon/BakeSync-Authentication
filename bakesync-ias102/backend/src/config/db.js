@@ -93,6 +93,12 @@ function buildPoolConfig(host) {
                 caPath,
                 '- enabling SSL with rejectUnauthorized:false'
             );
+            // ── SSL configuration ────────────────────────────────────────
+            // rejectUnauthorized: false skips certificate chain verification.
+            // The connection IS encrypted — SSL is active.
+            // This is a prototype trade-off to avoid ca.pem path management.
+            // Production improvement: use the Aiven CA certificate with
+            // rejectUnauthorized: true for full certificate validation.
             dbConfig.ssl = { rejectUnauthorized: false };
         }
     }

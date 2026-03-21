@@ -40,7 +40,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
         res.status(200).json(files);
     } catch (error) {
-        console.error('Get files error:', error);
+        console.error('[Files] Get files error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -76,7 +76,7 @@ router.post('/', authMiddleware, async (req, res) => {
             fileId: result.insertId
         });
     } catch (error) {
-        console.error('Create file error:', error);
+        console.error('[Files] Upload error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -101,9 +101,14 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
         const file = rows[0];
 
-        // DAC enforcement: only owner or public files can be accessed
+        // ── DAC enforcement ──────────────────────────────────────────
+        // Discretionary Access Control: the file owner sets access policy.
+        // The owner field (owner_id) is set at upload time and cannot
+        // be transferred — this is intentional for this prototype.
+        // Production improvement: allow ownership transfer between users.
         const isAllowed = file.owner_id === userId || file.is_public === 1;
         if (!isAllowed) {
+            // Log the denial before returning 403 — audit trail for DAC systems
             await logAccess({
                 userId,
                 fileId,
@@ -127,7 +132,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
             isOwner: file.owner_id === userId
         });
     } catch (error) {
-        console.error('Get file error:', error);
+        console.error('[Files] Get file error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -152,7 +157,11 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
         const file = rows[0];
 
-        // DAC enforcement: only owner can delete
+        // ── Server-side ownership check ──────────────────────────────
+        // The frontend hides delete/edit buttons for non-owners,
+        // but frontend-only guards are insufficient — any authenticated
+        // user could call this endpoint directly (e.g. via Postman).
+        // All authorization MUST be enforced server-side.
         if (file.owner_id !== userId) {
             await logAccess({
                 userId,
@@ -168,7 +177,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
         res.status(200).json({ message: 'File deleted' });
     } catch (error) {
-        console.error('Delete file error:', error);
+        console.error('[Files] Delete error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -220,7 +229,7 @@ router.patch('/:id/visibility', authMiddleware, async (req, res) => {
             is_public: is_public
         });
     } catch (error) {
-        console.error('Update visibility error:', error);
+        console.error('[Files] Visibility error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -255,7 +264,7 @@ router.get('/logs/denied', authMiddleware, requireRole('admin'), async (req, res
             }))
         );
     } catch (error) {
-        console.error('Denied access logs error:', error);
+        console.error('[Files] Denied logs error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

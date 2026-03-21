@@ -3,125 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Profile & Settings - BakeSync</title>
+  <title>Account Settings — BakeSync</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="alternate icon" href="../favicon.svg" />
   <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
-  <div class="app-shell">
-    <aside id="app-sidebar"></aside>
-    <div class="app-main">
-      <div class="app-topbar">
-        <div class="topbar-title">BakeSync · Settings</div>
-        <div class="topbar-actions"></div>
-      </div>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-content" id="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar"></button>
+          <nav class="breadcrumb" id="topbar-breadcrumb" aria-label="breadcrumb"></nav>
+        </div>
+        <div class="topbar-right">
+          <span class="topbar-username" id="topbar-username"></span>
+          <span class="topbar-role-badge" id="topbar-role-badge"></span>
+          <button type="button" onclick="logout()" class="btn btn-ghost btn-sm">Sign Out</button>
+        </div>
+      </header>
 
-      <div class="dashboard-container">
-        <div class="dashboard-header">
-          <h2>Profile & Settings</h2>
-          <p>Update your account details or delete your account.</p>
+      <main class="page-content" id="page-content">
+        <div class="dashboard-header" style="margin-bottom: 1.5rem;">
+          <h2>Profile &amp; Settings</h2>
+          <p style="color: var(--muted-foreground); font-size: 0.875rem;">Update your account details or delete your account.</p>
         </div>
 
-    <div id="error-alert" class="alert alert-destructive" style="display: none;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-        <path d="M12 9v4"/>
-        <path d="M12 17h.01"/>
-      </svg>
-      <span id="error-message"></span>
-    </div>
-
-    <div id="success-alert" class="alert alert-success" style="display: none;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
-      </svg>
-      <span id="success-message"></span>
-    </div>
-
-    <div class="content-card">
-      <h3>Account details</h3>
-      <form id="profile-form" class="space-y-4">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input id="username" type="text" autocomplete="username" required />
-          <p class="field-hint text-sm text-muted">3–50 characters. Must be unique.</p>
-          <span id="profile-username-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
-        </div>
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input id="email" type="email" autocomplete="email" required />
-          <p class="field-hint text-sm text-muted">Must be unique.</p>
-          <span id="profile-email-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
-        </div>
-        <button id="save-btn" class="btn btn-primary" type="submit">Save changes</button>
-      </form>
-    </div>
-
-    <div class="content-card" id="password-card">
-      <div id="password-card-toggle" style="cursor: pointer; display:flex; justify-content:space-between; gap: 1rem; align-items:flex-start;">
-        <div>
-          <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Change Password</h3>
-          <p class="text-sm text-muted" style="margin-bottom: 0;">Update your account password.</p>
-        </div>
-        <span class="collapse-chevron" id="password-chevron">▼</span>
-      </div>
-
-      <div id="password-form-body" style="display:none; margin-top: 1rem;">
-        <div class="form-group">
-          <label for="current-password">Current Password</label>
-          <input type="password" id="current-password" placeholder="Enter current password" autocomplete="current-password" />
-          <span id="current-password-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+        <div id="error-alert" class="alert alert-destructive" style="display: none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+            <path d="M12 9v4"/>
+            <path d="M12 17h.01"/>
+          </svg>
+          <span id="error-message"></span>
         </div>
 
-        <div class="form-group">
-          <label for="new-password">New Password</label>
-          <input type="password" id="new-password" placeholder="Min. 6 characters" autocomplete="new-password" />
-          <span id="new-password-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+        <div id="success-alert" class="alert alert-success" style="display: none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <span id="success-message"></span>
         </div>
 
-        <div class="form-group">
-          <label for="confirm-new-password">Confirm New Password</label>
-          <input type="password" id="confirm-new-password" placeholder="Repeat new password" autocomplete="new-password" />
-          <span id="confirm-new-password-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+        <div class="content-card">
+          <h3>Account details</h3>
+          <form id="profile-form" class="space-y-4">
+            <div class="form-group">
+              <label for="username">Username</label>
+              <input id="username" type="text" autocomplete="username" required />
+              <p class="field-hint text-sm text-muted">3–50 characters. Must be unique.</p>
+              <span id="profile-username-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input id="email" type="email" autocomplete="email" required />
+              <p class="field-hint text-sm text-muted">Must be unique.</p>
+              <span id="profile-email-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+            </div>
+            <button id="save-btn" class="btn btn-primary" type="submit">Save changes</button>
+          </form>
         </div>
 
-        <button class="btn btn-primary" id="change-password-btn" type="button">Change Password</button>
-      </div>
-    </div>
+        <div class="content-card" id="password-card">
+          <div id="password-card-toggle" style="cursor: pointer; display:flex; justify-content:space-between; gap: 1rem; align-items:flex-start;">
+            <div>
+              <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Change Password</h3>
+              <p class="text-sm text-muted" style="margin-bottom: 0;">Update your account password.</p>
+            </div>
+            <span class="collapse-chevron" id="password-chevron">▼</span>
+          </div>
 
-    <div class="content-card">
-      <h3>Delete account (OTP required)</h3>
-      <p class="text-sm text-muted" style="margin-bottom: 1rem;">
-        We’ll email you a 6-digit OTP code. Enter it to permanently delete your account.
-      </p>
+          <div id="password-form-body" style="display:none; margin-top: 1rem;">
+            <div class="form-group">
+              <label for="current-password">Current Password</label>
+              <input type="password" id="current-password" placeholder="Enter current password" autocomplete="current-password" />
+              <span id="current-password-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+            </div>
 
-      <div class="upload-form" style="margin-bottom: 1rem;">
-        <div class="form-group" style="grid-column: 1 / -1;">
-          <button id="request-delete-otp-btn" class="btn btn-outline" type="button">Send deletion OTP to my email</button>
+            <div class="form-group">
+              <label for="new-password">New Password</label>
+              <input type="password" id="new-password" placeholder="Min. 6 characters" autocomplete="new-password" />
+              <span id="new-password-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="confirm-new-password">Confirm New Password</label>
+              <input type="password" id="confirm-new-password" placeholder="Repeat new password" autocomplete="new-password" />
+              <span id="confirm-new-password-error" style="display:none; color: var(--destructive); font-size: 0.875rem; margin-top: 0.25rem;"></span>
+            </div>
+
+            <button class="btn btn-primary" id="change-password-btn" type="button">Change Password</button>
+          </div>
         </div>
-      </div>
 
-      <form id="delete-form" class="upload-form">
-        <div class="form-group">
-          <label for="delete-otp">Deletion OTP</label>
-          <input id="delete-otp" type="text" placeholder="000000" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required />
-        </div>
-        <div class="form-group">
-          <label>&nbsp;</label>
-          <button id="confirm-delete-btn" class="btn btn-destructive" type="submit">Delete my account</button>
-        </div>
-      </form>
-    </div>
+        <div class="content-card">
+          <h3>Delete account (OTP required)</h3>
+          <p class="text-sm text-muted" style="margin-bottom: 1rem;">
+            We’ll email you a 6-digit OTP code. Enter it to permanently delete your account.
+          </p>
 
-        <button onclick="history.back()" class="btn btn-outline">Back</button>
-      </div>
+          <div class="upload-form" style="margin-bottom: 1rem;">
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <button id="request-delete-otp-btn" class="btn btn-outline" type="button">Send deletion OTP to my email</button>
+            </div>
+          </div>
+
+          <form id="delete-form" class="upload-form">
+            <div class="form-group">
+              <label for="delete-otp">Deletion OTP</label>
+              <input id="delete-otp" type="text" placeholder="000000" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required />
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button id="confirm-delete-btn" class="btn btn-destructive" type="submit">Delete my account</button>
+            </div>
+          </form>
+        </div>
+
+        <button type="button" onclick="history.back()" class="btn btn-outline" style="margin-top: 1rem;">Back</button>
+      </main>
     </div>
   </div>
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
   <script src="../js/dashboard.js"></script>
-  <script src="../js/profile.js"></script>
   <script src="../js/sidebar.js"></script>
+  <script src="../js/profile.js"></script>
+  <script>
+    (function () {
+      if (!requireAuth()) return;
+      initSidebar();
+      setActiveNavItem();
+      initMobileSidebar();
+      initNavbar();
+      if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
+    })();
+  </script>
 </body>
 </html>

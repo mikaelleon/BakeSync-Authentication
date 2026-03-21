@@ -80,11 +80,21 @@ router.post('/register', async (req, res) => {
             }
         }
 
-        // Hash password
+        // ── Password hashing ────────────────────────────────────────
+        // bcrypt with saltRounds=10 meets the OWASP minimum recommendation.
+        // Higher rounds (12+) are more secure but slower.
+        // For this prototype, 10 provides adequate protection.
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Generate OTP
+        // ── OTP generation ───────────────────────────────────────────
+        // Math.random() is NOT cryptographically secure (CSPRNG).
+        // This is a known prototype limitation documented in the report.
+        // Production improvement: use crypto.randomInt(100000, 999999)
+        // from Node.js built-in crypto module.
         const otpCode = generateOTP();
+        // ── OTP expiry ───────────────────────────────────────────────
+        // 10-minute window balances security and usability.
+        // NIST SP 800-63B recommends OTP validity of no more than 10 min.
         const otpExpiry = getOTPExpiry();
         const expiresAt = otpExpiry.toISOString();
 
@@ -108,7 +118,7 @@ router.post('/register', async (req, res) => {
             try {
                 await sendOTPEmail(email, username, otpCode);
             } catch (emailError) {
-                console.error('Failed to resend OTP email:', emailError);
+                console.error('[Auth] Failed to resend OTP email:', emailError && emailError.message ? emailError.message : emailError);
                 return res.status(500).json({
                     error: 'Failed to send verification email. Please try again.'
                 });
@@ -137,7 +147,7 @@ router.post('/register', async (req, res) => {
             await sendOTPEmail(email, username, otpCode);
         } catch (emailError) {
             // If email fails, delete the user and return error
-            console.error('Failed to send OTP email:', emailError);
+            console.error('[Auth] Failed to send OTP email:', emailError && emailError.message ? emailError.message : emailError);
             await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
             return res.status(500).json({
                 error: 'Failed to send verification email. Please try again.'
@@ -151,7 +161,7 @@ router.post('/register', async (req, res) => {
             expiresAt
         });
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('[Auth] Register error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -222,6 +232,10 @@ router.post('/verify-otp', async (req, res) => {
             const prevAttempts = Number(user.otp_attempts || 0);
             const nextAttempts = prevAttempts + 1;
 
+            // ── OTP brute-force lockout ──────────────────────────────────
+            // After 5 failed attempts, account is locked for 15 minutes.
+            // This limits brute-force guessing of 6-digit OTPs (10^6 space).
+            // Improvement: progressive lockout (15min → 1hr → permanent)
             if (nextAttempts >= MAX_OTP_ATTEMPTS) {
                 const lockedUntil = new Date(now);
                 lockedUntil.setMinutes(lockedUntil.getMinutes() + OTP_LOCK_MINUTES);
@@ -261,7 +275,7 @@ router.post('/verify-otp', async (req, res) => {
             role: user.role
         });
     } catch (error) {
-        console.error('OTP verification error:', error);
+        console.error('[Auth] OTP verify error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -336,7 +350,7 @@ router.post('/resend-otp', async (req, res) => {
         try {
             await sendOTPEmail(user.email, user.username, otpCode);
         } catch (emailError) {
-            console.error('Failed to resend OTP email:', emailError);
+            console.error('[Auth] Failed to resend OTP email:', emailError && emailError.message ? emailError.message : emailError);
             return res.status(500).json({
                 error: 'Failed to send verification email. Please try again.'
             });
@@ -348,7 +362,7 @@ router.post('/resend-otp', async (req, res) => {
             attemptsRemaining: MAX_OTP_ATTEMPTS
         });
     } catch (error) {
-        console.error('Resend OTP error:', error);
+        console.error('[Auth] Resend OTP error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -391,7 +405,11 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Sign JWT
+        // ── JWT signing ──────────────────────────────────────────────
+        // Payload contains minimal claims (id, username, role).
+        // Avoid storing sensitive data in JWT — it is base64 encoded,
+        // not encrypted, and can be decoded by anyone with the token.
+        // 2-hour expiry limits the window for token misuse.
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role },
             process.env.JWT_SECRET,
@@ -404,7 +422,7 @@ router.post('/login', async (req, res) => {
             username: user.username
         });
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('[Auth] Login error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

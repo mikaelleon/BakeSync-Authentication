@@ -233,10 +233,10 @@ async function sendOTPEmail(toEmail, username, otpCode) {
 
         if (error) throw new Error(error.message);
 
-        console.log('[Mailer] OTP sent to ' + toEmail + ' — ID: ' + data.id);
+        console.log(`[Mailer] OTP sent to ${toEmail} for ${username}`);
 
     } catch (err) {
-        console.error('[Mailer] Failed:', err.message);
+        console.error('[Mailer] Failed to send email:', err && err.message ? err.message : err);
         throw err;
     }
 }
@@ -443,9 +443,9 @@ async function sendAccountDeletionOTPEmail(toEmail, username, otpCode) {
 
         if (error) throw new Error(error.message);
 
-        console.log('[Mailer] Deletion OTP sent to ' + toEmail + ' — ID: ' + data.id);
+        console.log(`[Mailer] Deletion OTP sent to ${toEmail} for ${username}`);
     } catch (err) {
-        console.error('[Mailer] Failed:', err.message);
+        console.error('[Mailer] Failed to send email:', err && err.message ? err.message : err);
         throw err;
     }
 }

@@ -141,7 +141,7 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('Admin dashboard error:', error);
+        console.error('[Dashboard] Admin error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Failed to load dashboard data.' });
     }
 });
@@ -219,7 +219,7 @@ router.get('/staff', authMiddleware, requireRole('staff'), async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('Staff dashboard error:', error);
+        console.error('[Dashboard] Staff error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Failed to load dashboard data.' });
     }
 });
@@ -290,11 +290,12 @@ router.get('/user', authMiddleware, requireRole('user'), async (req, res) => {
                 message: `${n.uploader} shared a new ${n.file_type}: ${n.filename}`,
                 type: n.file_type,
                 time: n.created_at,
-                read: false
+                read: false,
+                uploaderRole: n.uploader_role
             }))
         });
     } catch (error) {
-        console.error('User dashboard error:', error);
+        console.error('[Dashboard] User error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Failed to load dashboard data.' });
     }
 });

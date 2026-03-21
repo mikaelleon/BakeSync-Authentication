@@ -57,13 +57,13 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
+    console.error('[BakeSync] Unhandled error:', err && err.message ? err.message : err);
     res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
-    console.log(`BakeSync API running on port ${PORT}`);
-    console.log(`CORS enabled for: ${process.env.FRONTEND_URL}`);
+    console.log(`[BakeSync] Backend running on port ${PORT}`);
+    console.log(`[BakeSync] CORS enabled for: ${process.env.FRONTEND_URL}`);
 });

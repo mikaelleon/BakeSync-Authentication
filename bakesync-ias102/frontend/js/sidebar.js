@@ -109,6 +109,64 @@ function getDashboardUrl(role) {
   return map[role] || 'login.html';
 }
 
+const BREADCRUMB_MAP = {
+  'dashboard-admin.html': ['Dashboard'],
+  'dashboard-staff.html': ['Dashboard'],
+  'dashboard-user.html': ['Dashboard'],
+  'files.html': ['Dashboard', 'Document Manager'],
+  'profile.html': ['Dashboard', 'Account Settings'],
+  'access-denied.html': ['Access Denied'],
+  'inventory.html': ['Dashboard', 'Inventory'],
+  'recipes.html': ['Dashboard', 'Recipes'],
+  'pos.html': ['Dashboard', 'Point of Sale'],
+  'production.html': ['Dashboard', 'Production'],
+  'analytics.html': ['Dashboard', 'Analytics'],
+  'financials.html': ['Dashboard', 'Financials'],
+  'team.html': ['Dashboard', 'Team'],
+  'supply-chain.html': ['Dashboard', 'Supply Chain'],
+};
+
+function renderBreadcrumb() {
+  const breadcrumbEl = document.getElementById('topbar-breadcrumb');
+  if (!breadcrumbEl) return;
+
+  const filename = window.location.pathname.split('/').pop() || '';
+  const crumbs = BREADCRUMB_MAP[filename] || ['Dashboard'];
+  const role = sessionStorage.getItem('role') || 'user';
+  const dashUrl = getDashboardUrl(role);
+
+  const params = new URLSearchParams(window.location.search);
+  const fileType = params.get('type');
+  const typeLabel = {
+    recipe: 'Recipes',
+    report: 'Reports',
+    schedule: 'Schedules',
+    invoice: 'Invoices',
+  };
+
+  const allCrumbs = fileType ? [...crumbs, typeLabel[fileType] || fileType] : crumbs;
+
+  breadcrumbEl.innerHTML = allCrumbs
+    .map((crumb, index) => {
+      const isLast = index === allCrumbs.length - 1;
+      const isFirst = index === 0;
+      const linkHref = isFirst ? dashUrl : null;
+
+      if (isLast) {
+        return `<span class="breadcrumb-current">${crumb}</span>`;
+      }
+
+      return `
+      <a class="breadcrumb-link"
+         href="${linkHref || '#'}">
+        ${crumb}
+      </a>
+      <span class="breadcrumb-separator">›</span>
+    `;
+    })
+    .join('');
+}
+
 function currentIsMobile() {
   return window.innerWidth < 768;
 }
@@ -206,8 +264,11 @@ function renderSidebarContent() {
           <div class="sidebar-user-meta">
             <div class="sidebar-user-name">${username}</div>
             <div class="sidebar-user-role">
-              <span class="sidebar-role-text">${getRoleDisplayName(role)}</span>
-              <span class="sidebar-role-dot" style="background:${roleColorVar(role)}"></span>
+              ${
+                typeof renderRoleBadge === 'function'
+                  ? renderRoleBadge(role)
+                  : `<span class="sidebar-role-text">${getRoleDisplayName(role)}</span><span class="sidebar-role-dot" style="background:${roleColorVar(role)}"></span>`
+              }
             </div>
           </div>
         </div>
@@ -393,48 +454,88 @@ function initMobileSidebar() {
     btn.type = 'button';
     btn.setAttribute('aria-label', 'Open sidebar');
     btn.innerHTML = `<span class="hamburger-lines" aria-hidden="true">☰</span>`;
-    topbar.insertBefore(btn, topbar.firstChild);
+    const left = topbar.querySelector('.topbar-left');
+    if (left) left.insertBefore(btn, left.firstChild);
+    else topbar.insertBefore(btn, topbar.firstChild);
     return btn;
   }
 
   const btn = getOrCreateHamburger();
   if (!btn) return;
 
-  let overlayEl = null;
+  let overlayEl = document.getElementById('sidebar-overlay');
 
   function ensureOverlay() {
-    if (overlayEl) return overlayEl;
-    overlayEl = document.createElement('div');
-    overlayEl.id = 'sidebar-overlay';
-    overlayEl.className = 'sidebar-overlay';
-    document.body.appendChild(overlayEl);
-    overlayEl.addEventListener('click', () => closeMobileSidebar());
+    if (!overlayEl) {
+      overlayEl = document.createElement('div');
+      overlayEl.id = 'sidebar-overlay';
+      overlayEl.className = 'sidebar-overlay';
+      document.body.appendChild(overlayEl);
+    }
+    if (!overlayEl.dataset.bakesyncOverlayBound) {
+      overlayEl.addEventListener('click', () => closeMobileSidebar());
+      overlayEl.dataset.bakesyncOverlayBound = '1';
+    }
     return overlayEl;
   }
 
   function openMobileSidebar() {
     if (!currentIsMobile()) return;
-    ensureOverlay();
-    sidebar.classList.add('mobile-open');
-    overlayEl.classList.add('visible');
+    const sb = document.getElementById('sidebar') || sidebar;
+    const ov = ensureOverlay();
+    if (sb) sb.classList.add('mobile-open');
+    if (ov) ov.classList.add('visible');
+    document.body.style.overflow = 'hidden';
   }
 
   function closeMobileSidebar() {
-    if (!currentIsMobile()) return;
-    sidebar.classList.remove('mobile-open');
-    if (overlayEl) overlayEl.classList.remove('visible');
+    const sb = document.getElementById('sidebar') || sidebar;
+    const ov = document.getElementById('sidebar-overlay') || overlayEl;
+    if (sb) sb.classList.remove('mobile-open');
+    if (ov) ov.classList.remove('visible');
+    setTimeout(() => {
+      document.body.style.overflow = '';
+    }, 280);
   }
 
   btn.addEventListener('click', () => {
     if (!currentIsMobile()) return;
-    if (sidebar.classList.contains('mobile-open')) closeMobileSidebar();
+    const sb = document.getElementById('sidebar') || sidebar;
+    if (sb.classList.contains('mobile-open')) closeMobileSidebar();
     else openMobileSidebar();
   });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMobileSidebar();
+  });
+
+  let touchStartX = 0;
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      touchStartX = e.touches[0].clientX;
+    },
+    { passive: true }
+  );
+  document.addEventListener(
+    'touchend',
+    (e) => {
+      const deltaX = touchStartX - e.changedTouches[0].clientX;
+      const sb = document.getElementById('sidebar') || sidebar;
+      const isOpen = sb?.classList.contains('mobile-open');
+      if (isOpen && deltaX > 60) {
+        closeMobileSidebar();
+      }
+    },
+    { passive: true }
+  );
 
   // Resize handling: disable overlay + icon-only collapse on wider screens.
   window.addEventListener('resize', () => {
     if (!currentIsMobile()) {
-      if (overlayEl) overlayEl.classList.remove('visible');
+      document.body.style.overflow = '';
+      const ov = document.getElementById('sidebar-overlay') || overlayEl;
+      if (ov) ov.classList.remove('visible');
       sidebar.classList.remove('mobile-open');
 
       // Restore the persisted collapsed state (non-mobile).
@@ -463,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebar();
     setActiveNavItem();
     initMobileSidebar();
+    if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
   } catch (e) {
     // Silent: some pages may not have the expected shell.
   }

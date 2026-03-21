@@ -3,18 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Baker Dashboard - BakeSync</title>
+    <title>Baker Dashboard — BakeSync</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="alternate icon" href="../favicon.svg" />
     <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
     <div class="app-layout">
         <aside class="sidebar" id="sidebar"></aside>
         <div class="main-content" id="main-content">
             <header class="topbar">
-                <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar"></button>
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar"></button>
+                    <nav class="breadcrumb" id="topbar-breadcrumb" aria-label="breadcrumb"></nav>
+                </div>
                 <div class="topbar-right">
                     <span class="topbar-username" id="topbar-username"></span>
                     <span class="topbar-role-badge" id="topbar-role-badge"></span>
+                    <button type="button" onclick="logout()" class="btn btn-ghost btn-sm">Sign Out</button>
                 </div>
             </header>
 
@@ -22,20 +29,18 @@
         </div>
     </div>
 
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
     <script src="../js/dashboard.js"></script>
     <script src="../js/sidebar.js"></script>
     <script>
-        const user = getCurrentUser();
-        const usernameEl = document.getElementById('topbar-username');
-        const roleEl = document.getElementById('topbar-role-badge');
-        if (usernameEl) usernameEl.textContent = user.username || '';
-        if (roleEl) roleEl.textContent = getRoleDisplayName(user.role);
-
         initSidebar();
         setActiveNavItem();
         initMobileSidebar();
+        initNavbar();
+        if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
         loadStaffDashboard();
     </script>
 </body>

@@ -155,6 +155,17 @@ See [documents/README.md](documents/README.md) for complete documentation struct
 - Inventory consumption tracking
 - Production logs and analytics
 
+## Architecture Diagrams
+
+System architecture diagrams are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+The diagrams use Mermaid syntax and render automatically on GitHub.
+
+To view locally:
+
+- Install the Mermaid CLI: `npm install -g @mermaid-js/mermaid-cli`
+- Or view in VS Code with the Mermaid Preview extension
+- Or paste into [mermaid.live](https://mermaid.live)
+
 ## Contributing
 
 1. Fork the repository

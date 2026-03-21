@@ -1,5 +1,18 @@
 // BakeSync Dashboard Logic
 
+function getRoleDisplayLabel(role) {
+    return role === 'admin' ? 'Manager'
+        : role === 'staff' ? 'Baker'
+            : role === 'user' ? 'Cashier'
+                : role;
+}
+
+function renderRoleBadge(role) {
+    const r = role || 'user';
+    const label = typeof getRoleDisplayName === 'function' ? getRoleDisplayName(r) : getRoleDisplayLabel(r);
+    return `<span class="role-badge ${escapeHtml(r)}">${escapeHtml(label)}</span>`;
+}
+
 /**
  * Initialize navbar with user info
  */
@@ -15,9 +28,13 @@ function initNavbar() {
     }
 
     if (roleEl) {
-        roleEl.textContent = getRoleDisplayName(user.role);
-        roleEl.className = `badge ${getRoleBadgeClass(user.role)}`;
+        roleEl.innerHTML = renderRoleBadge(user.role);
     }
+
+    const topUser = document.getElementById('topbar-username');
+    const topRole = document.getElementById('topbar-role-badge');
+    if (topUser) topUser.textContent = user.username || '';
+    if (topRole) topRole.innerHTML = renderRoleBadge(user.role || 'user');
 
     if (logoutBtn) {
         logoutBtn.addEventListener('click', logout);
@@ -253,6 +270,53 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function icon(name, className = '') {
+    const iconMap = {
+        'file-text': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+        'book-open': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+        calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+        receipt: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
+        'bar-chart': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+        'bar-chart-2': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+        folder: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`,
+        users: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+        lock: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+        bell: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+        trash: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+        package: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`,
+        'shopping-cart': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`,
+        settings: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+        truck: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`,
+        'dollar-sign': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+        rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>`,
+    };
+    const svg = iconMap[name] || iconMap['file-text'];
+    if (!className) return svg;
+    return svg.replace('<svg ', `<svg class="${className}" `);
+}
+
+function getFileTypeIconEl(type) {
+    const iconName = {
+        recipe: 'book-open',
+        report: 'bar-chart',
+        schedule: 'calendar',
+        invoice: 'receipt',
+    }[type] || 'file-text';
+    const t = type || 'recipe';
+    return `<span class="file-type-icon-wrap type-${escapeHtml(t)}">${icon(iconName)}</span>`;
+}
+
+function updateFilesPageTitle(type) {
+    const typeLabel = {
+        all: 'Document Manager',
+        recipe: 'Recipes',
+        report: 'Reports',
+        schedule: 'Schedules',
+        invoice: 'Invoices',
+    };
+    document.title = `${typeLabel[type] || 'Document Manager'} — BakeSync`;
+}
+
 // =======================================================
 // IAS102 Shared utilities + new Dashboard/Files behavior
 // =======================================================
@@ -350,23 +414,7 @@ function fileTypeToColorClass(type) {
 }
 
 function fileTypeIcon(type) {
-    // Keep type icons simple and consistent across widget + files page.
-    // Uses emoji-like glyphs but wrapped in SVG for consistent sizing.
-    const key = fileTypeToColorClass(type);
-    const styles = {
-        recipe: 'color: var(--success);',
-        report: 'color: #3b82f6;',
-        schedule: 'color: var(--warning);',
-        invoice: 'color: #a855f7;'
-    }[key] || 'color: var(--success);';
-
-    // Small inline icon shapes
-    const glyph = key === 'recipe' ? '📖' : key === 'report' ? '📊' : key === 'schedule' ? '📅' : '🧾';
-    return `
-      <div class="file-type-icon ${key}" style="${styles}" aria-hidden="true">
-        ${glyph}
-      </div>
-    `;
+    return getFileTypeIconEl(type);
 }
 
 function ensureFileModal() {
@@ -638,7 +686,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
         if (shown.length === 0) {
             listEl.innerHTML = `
               <div class="widget-empty">
-                <div class="widget-empty-icon">📂</div>
+                <div class="widget-empty-icon" style="display:flex;justify-content:center;">${icon('folder', '')}</div>
                 <div class="widget-empty-message">${escapeHtml(emptyStateMessage(tabKey))}</div>
                 <a class="btn btn-primary" href="${escapeHtml(primaryUploadLink(tabKey))}">Add ${fileTypeToLabel(tabKey).replace('Recipes','Recipe').replace('Invoices','Invoice')}</a>
               </div>
@@ -656,8 +704,8 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 const ownerLabel = isOwner ? 'You' : 'Shared';
                 const dateTitle = file.created_at ? new Date(file.created_at).toLocaleString() : '';
                 const dateLabel = file.created_at ? timeAgo(file.created_at) : '—';
-                const lockOverlay = !isPublic && !isOwner ? `<div class="file-card-locked">🔒 Access restricted</div>` : '';
-                const lockOwnerMuted = !isPublic && isOwner ? `<div class="file-card-locked file-card-locked-muted">🔒 Your private file</div>` : '';
+                const lockOverlay = !isPublic && !isOwner ? `<div class="file-card-locked" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Access restricted</div>` : '';
+                const lockOwnerMuted = !isPublic && isOwner ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>` : '';
 
                 const visibilityBadgeClass = isPublic ? 'public' : 'private';
                 return `
@@ -922,17 +970,21 @@ function renderQuickActions(role) {
 }
 
 function iconWrapperHTML(iconType) {
-    // Matches .kpi-icon-wrapper in style.css
-    const svg = (() => {
-        if (iconType === 'folder') return `<svg viewBox="0 0 24 24" fill="none"><path d="M3 7h6l2 2h10v10H3V7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
-        if (iconType === 'users') return `<svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 8v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M23 11h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
-        if (iconType === 'book-open') return `<svg viewBox="0 0 24 24" fill="none"><path d="M4 19a2 2 0 0 0 2 2h2V5H6a2 2 0 0 0-2 2v12Z" stroke="currentColor" stroke-width="2"/><path d="M12 5a4 4 0 0 1 4-4h4v18h-4a4 4 0 0 0-4 4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
-        if (iconType === 'alert-triangle') return `<svg viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2"/><path d="M12 9v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
-        if (iconType === 'calendar') return `<svg viewBox="0 0 24 24" fill="none"><path d="M8 2v4M16 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 9h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`;
-        return `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>`;
-    })();
-
-    return `<div class="kpi-icon-wrapper">${svg}</div>`;
+    const map = {
+        folder: 'folder',
+        users: 'users',
+        'book-open': 'book-open',
+        'alert-triangle': null,
+        calendar: 'calendar',
+        'file-text': 'file-text',
+        'bar-chart': 'bar-chart',
+        files: 'folder',
+    };
+    if (iconType === 'alert-triangle') {
+        return `<div class="kpi-icon-wrapper"><svg viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" stroke="currentColor" stroke-width="2"/><path d="M12 9v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>`;
+    }
+    const key = map[iconType] || 'file-text';
+    return `<div class="kpi-icon-wrapper">${icon(key).replace('width="16" height="16"', 'width="20" height="20"')}</div>`;
 }
 
 function renderKpiValue(value, zeroLabel, valueTone) {
@@ -1076,7 +1128,7 @@ function renderOnboardingBanner(role, containerEl, stats) {
     const banner = document.createElement('div');
     banner.className = 'onboarding-banner';
     banner.innerHTML = `
-      <div class="onboarding-banner-icon">🚀</div>
+      <div class="onboarding-banner-icon" style="display:flex;align-items:center;justify-content:center;">${icon('rocket')}</div>
       <div class="onboarding-banner-body">
         <strong>Welcome to BakeSync!</strong>
         <p>${escapeHtml(roleAction[role] || 'Get started by adding your first document.')}</p>
@@ -1110,11 +1162,15 @@ function renderActivityFeed(activity) {
                     item.type === 'delete' ? 'var(--destructive)' :
                         item.type === 'view' ? '#3b82f6' :
                             item.type === 'login' ? '#a855f7' : 'var(--primary)';
+            const roleBadge = item.uploaderRole ? renderRoleBadge(item.uploaderRole) : '';
             return `
               <div class="activity-item" style="display:flex; gap: 0.75rem; padding: 0.5rem 0; align-items:flex-start;">
                 <div class="activity-dot" style="width: 8px; height: 8px; border-radius: 9999px; background:${dotColor}; margin-top: 6px;"></div>
                 <div class="activity-body" style="flex:1;">
-                  <div class="activity-text" style="font-size: 0.875rem; color: var(--foreground);">${escapeHtml(item.text || '')}</div>
+                  <div class="activity-text" style="font-size: 0.875rem; color: var(--foreground); display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+                    ${escapeHtml(item.text || '')}
+                    ${roleBadge}
+                  </div>
                   <span class="activity-time" style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 2px;"
                         title="${new Date(item.time).toLocaleString()}">
                     ${escapeHtml(timeAgo(item.time))}
@@ -1219,7 +1275,7 @@ function renderProductionScheduleTable(schedules, containerEl) {
     if (!schedules || schedules.length === 0) {
         section.innerHTML += `
           <div class="empty-state">
-            <div class="empty-state-icon">📅</div>
+            <div class="empty-state-icon" style="display:flex;justify-content:center;">${icon('calendar')}</div>
             <p class="empty-state-title">No schedules yet</p>
             <p class="empty-state-body">
               Upload a schedule document to see it here.
@@ -1250,8 +1306,8 @@ function renderProductionScheduleTable(schedules, containerEl) {
         ${schedules.map((s) => `
           <tr>
             <td>
-              <div class="file-name-cell">
-                <span class="file-type-icon schedule"></span>
+              <div class="file-name-cell" style="display:flex;align-items:center;gap:8px;">
+                ${getFileTypeIconEl('schedule')}
                 <span>${escapeHtml(s.filename)}</span>
               </div>
             </td>
@@ -1281,16 +1337,6 @@ function renderProductionScheduleTable(schedules, containerEl) {
     return section;
 }
 
-function getFileTypeIcon(type) {
-    const icons = {
-        recipe: '📖',
-        report: '📊',
-        schedule: '📅',
-        invoice: '🧾'
-    };
-    return icons[type] || '📄';
-}
-
 function renderNotificationsPanel(notifications, containerEl) {
     const section = document.createElement('div');
     section.className = 'dashboard-section';
@@ -1315,7 +1361,7 @@ function renderNotificationsPanel(notifications, containerEl) {
     if (!notifications || notifications.length === 0) {
         section.innerHTML += `
           <div class="empty-state">
-            <div class="empty-state-icon">🔔</div>
+            <div class="empty-state-icon" style="display:flex;justify-content:center;">${icon('bell')}</div>
             <p class="empty-state-title">No notifications</p>
             <p class="empty-state-body">
               When team members share documents, they will appear here.
@@ -1333,12 +1379,13 @@ function renderNotificationsPanel(notifications, containerEl) {
         const isRead = !!n.read;
         const item = document.createElement('div');
         item.className = `notification-item ${isRead ? 'read' : 'unread'}`;
+        const uploaderBadge = n.uploaderRole ? `<span style="margin-left:6px;">${renderRoleBadge(n.uploaderRole)}</span>` : '';
         item.innerHTML = `
           <div class="notification-icon-wrap type-${escapeHtml(n.type || '')}">
-            ${escapeHtml(getFileTypeIcon(n.type || ''))}
+            ${getFileTypeIconEl(n.type || '')}
           </div>
           <div class="notification-body">
-            <p class="notification-message">${escapeHtml(n.message || '')}</p>
+            <p class="notification-message" style="display:flex;flex-wrap:wrap;align-items:center;">${escapeHtml(n.message || '')}${uploaderBadge}</p>
             <span class="notification-time"
                   title="${new Date(n.time).toLocaleString()}">
               ${escapeHtml(timeAgo(n.time))}
@@ -1508,7 +1555,7 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
     if (shown.length === 0) {
         container.innerHTML = `
           <div class="widget-empty">
-            <div class="widget-empty-icon">📂</div>
+            <div class="widget-empty-icon" style="display:flex;justify-content:center;">${icon('folder')}</div>
             <div class="widget-empty-message">${escapeHtml(emptyStateMessage(tabKey))}</div>
             <a class="btn btn-primary" href="${escapeHtml(primaryUploadLink(tabKey))}">Add ${escapeHtml(fileTypeToLabel(tabKey).replace('Recipes', 'Recipe').replace('Invoices', 'Invoice'))}</a>
           </div>
@@ -1528,9 +1575,9 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
             const lockedOwner = !isPublic && isOwner;
 
             const cardLocked = lockedOther
-                ? `<div class="file-card-locked">🔒 Access restricted</div>`
+                ? `<div class="file-card-locked" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Access restricted</div>`
                 : lockedOwner
-                    ? `<div class="file-card-locked file-card-locked-muted">🔒 Your private file</div>`
+                    ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>`
                     : '';
 
             return `
@@ -1708,6 +1755,8 @@ async function initFilesPage() {
     }
 
     rerender();
+    updateFilesPageTitle(currentTab);
+    if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
 
     tabsEl.addEventListener('click', (e) => {
         const btn = e.target.closest('.filter-tab');
@@ -1729,6 +1778,9 @@ async function initFilesPage() {
         if (typeSelect) {
             typeSelect.value = nextTab !== 'all' ? nextTab : roleDefaultType;
         }
+
+        updateFilesPageTitle(nextTab);
+        if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
     });
 
     if (searchEl) {
@@ -1814,4 +1866,40 @@ async function initFilesPage() {
         });
     }
 }
+
+function initPageTransitions() {
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+        if (!href) return;
+
+        if (
+            href.startsWith('http') ||
+            href.startsWith('//') ||
+            href.startsWith('#') ||
+            href.startsWith('mailto') ||
+            href.toLowerCase().startsWith('javascript')
+        ) return;
+
+        if (link.target === '_blank') return;
+        if (link.hasAttribute('download')) return;
+
+        e.preventDefault();
+
+        const pageContent =
+            document.querySelector('.page-content') ||
+            document.querySelector('.auth-container .card') ||
+            document.body;
+
+        pageContent.classList.add('page-exit');
+
+        setTimeout(() => {
+            window.location.href = href;
+        }, 180);
+    });
+}
+
+initPageTransitions();
 

@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Access Denied - BakeSync</title>
+  <title>Access Denied — BakeSync</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="alternate icon" href="../favicon.svg" />
   <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 </head>
 <body>
   <div class="auth-container">
@@ -50,6 +53,7 @@
 
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/dashboard.js"></script>
   <script>
     function goDashboard() {
       if (!isAuthenticated()) {
@@ -75,14 +79,17 @@
       const userRole = params.get('userRole') || params.get('user_role') || sessionStorage.getItem('role');
 
       if (required || attempted || userRole) {
-        const safeRequired = required || '—';
-        const safeAttempted = attempted || userRole || '—';
-        const safeUserRole = userRole || '—';
-
         const rbEl = document.getElementById('rbac-details');
         const txtEl = document.getElementById('rbac-details-text');
         if (rbEl && txtEl) {
-          txtEl.textContent = `Required: ${safeRequired}. Attempted as: ${safeAttempted}. Your role: ${safeUserRole}.`;
+          const badge = (r) =>
+            r && ['admin', 'staff', 'user'].includes(r) && typeof renderRoleBadge === 'function'
+              ? renderRoleBadge(r)
+              : escapeHtml(r || '—');
+          txtEl.innerHTML =
+            '<div>Required role: ' + badge(required) + '</div>' +
+            '<div style="margin-top:6px;">Attempted as: ' + badge(attempted || userRole) + '</div>' +
+            '<div style="margin-top:6px;">Your session role: ' + badge(userRole) + '</div>';
           rbEl.style.display = 'block';
         }
       }
