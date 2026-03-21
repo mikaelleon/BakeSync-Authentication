@@ -13,8 +13,43 @@ function renderRoleBadge(role) {
     return `<span class="role-badge ${escapeHtml(r)}">${escapeHtml(label)}</span>`;
 }
 
+const BAKESYNC_THEME_KEY = 'bakesync_theme';
+
+function applyTheme(mode) {
+    const dark = mode === 'dark';
+    if (dark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+    try {
+        localStorage.setItem(BAKESYNC_THEME_KEY, dark ? 'dark' : 'light');
+    } catch (_) {}
+    syncThemeToggleButton();
+}
+
+function syncThemeToggleButton() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    btn.title = dark ? 'Light mode' : 'Dark mode';
+}
+
+function initThemeToggle() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn || btn.dataset.themeBound === '1') return;
+    btn.dataset.themeBound = '1';
+    syncThemeToggleButton();
+    btn.addEventListener('click', () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        applyTheme(isDark ? 'light' : 'dark');
+    });
+}
+
 /**
- * Initialize navbar with user info
+ * Initialize legacy navbar elements (if present). Topbar shows theme toggle only.
  */
 function initNavbar() {
     const user = getCurrentUser();
@@ -31,14 +66,11 @@ function initNavbar() {
         roleEl.innerHTML = renderRoleBadge(user.role);
     }
 
-    const topUser = document.getElementById('topbar-username');
-    const topRole = document.getElementById('topbar-role-badge');
-    if (topUser) topUser.textContent = user.username || '';
-    if (topRole) topRole.innerHTML = renderRoleBadge(user.role || 'user');
-
     if (logoutBtn) {
         logoutBtn.addEventListener('click', logout);
     }
+
+    initThemeToggle();
 }
 
 /**

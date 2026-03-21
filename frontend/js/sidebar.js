@@ -277,6 +277,9 @@ function renderSidebarContent() {
           <div class="sidebar-avatar" style="background:${roleColorVar(role)}">${String(username).slice(0, 1).toUpperCase()}</div>
           <div class="sidebar-user-meta">
             <div class="sidebar-user-name">${username}</div>
+            <div class="sidebar-user-role">
+              ${typeof renderRoleBadge === 'function' ? renderRoleBadge(role) : ''}
+            </div>
           </div>
         </div>
 
