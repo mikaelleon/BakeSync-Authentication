@@ -356,7 +356,6 @@ function setActiveNavItem() {
 
   // Clear active styles
   sidebar.querySelectorAll('.sidebar-link.active').forEach((el) => el.classList.remove('active'));
-  sidebar.querySelectorAll('.sidebar-link-parent-active').forEach((el) => el.classList.remove('sidebar-link-parent-active'));
 
   // File-type nav items (files.html)
   const fileNavItems = sidebar.querySelectorAll('.sidebar-link[data-path]');
@@ -385,14 +384,6 @@ function setActiveNavItem() {
     const anchorPath = href.split('?')[0];
     const isActive = currentPath.endsWith(anchorPath) || currentPath.includes(anchorPath);
     if (isActive) a.classList.add('active');
-  });
-
-  // Document Manager parent: subtle active when a type tab (Recipes, etc.) is open
-  const onFilesPage = currentPath.includes('files.html');
-  sidebar.querySelectorAll('a.sidebar-link[data-path="files.html"]').forEach((a) => {
-    const dt = a.getAttribute('data-type') || '';
-    if (dt !== '') return;
-    if (onFilesPage && currentType) a.classList.add('sidebar-link-parent-active');
   });
 }
 

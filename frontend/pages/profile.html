@@ -73,9 +73,7 @@
               <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Change Password</h3>
               <p class="text-sm text-muted" style="margin-bottom: 0;">Update your account password.</p>
             </div>
-            <span class="collapse-chevron profile-chevron" id="password-chevron" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </span>
+            <span class="collapse-chevron" id="password-chevron">▼</span>
           </div>
 
           <div id="password-form-body" style="display:none; margin-top: 1rem;">
@@ -101,31 +99,53 @@
           </div>
         </div>
 
-        <div class="content-card" id="delete-account-card">
-          <button type="button" id="delete-account-reveal" class="btn btn-link-muted" style="padding: 0; font-size: 0.875rem; color: var(--muted-foreground); background: none; border: none; cursor: pointer; text-decoration: underline;">
-            Delete account…
-          </button>
-          <div id="delete-account-expanded" style="display: none; margin-top: 1rem;">
-            <p class="text-sm text-muted" style="margin-bottom: 1rem;">
-              We’ll email you a 6-digit OTP code. Enter it to permanently delete your account.
-            </p>
-            <div class="upload-form" style="margin-bottom: 1rem;">
-              <div class="form-group" style="grid-column: 1 / -1;">
-                <button id="request-delete-otp-btn" class="btn btn-outline" type="button">Send deletion OTP to my email</button>
+        <div class="content-card danger-zone" id="delete-account-card">
+          <div class="profile-card-header">
+            <div>
+              <h3 class="danger-title">Danger Zone</h3>
+              <p class="text-sm text-muted" style="margin-bottom: 0;">
+                Permanently delete your account and all your files. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <div id="delete-step-1">
+            <button class="btn-outline-danger btn-sm" id="delete-show-btn" type="button">Delete my account</button>
+          </div>
+
+          <div id="delete-step-2" style="display:none;">
+            <div class="delete-confirm-box">
+              <p class="delete-confirm-warning">
+                Are you sure? This will permanently delete your account, all your files, and related access logs. This cannot be undone.
+              </p>
+              <div class="delete-confirm-actions">
+                <button class="btn btn-ghost btn-sm" id="delete-cancel-btn" type="button">Cancel</button>
+                <button class="btn btn-destructive btn-sm" id="delete-request-otp-btn" type="button">Yes, send me a deletion code</button>
               </div>
             </div>
-            <form id="delete-form" class="upload-form">
-              <div class="form-group">
-                <label for="delete-otp">Deletion OTP</label>
-                <input id="delete-otp" type="text" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required />
-              </div>
-              <div class="form-group">
-                <label>&nbsp;</label>
-                <button id="confirm-delete-btn" class="btn btn-destructive" type="submit">Delete my account</button>
-              </div>
-            </form>
+          </div>
+
+          <div id="delete-step-3" style="display:none;">
+            <p class="delete-otp-sent-msg">
+              A 6-digit deletion code has been sent to your email. Enter it below to permanently delete your account.
+            </p>
+            <div class="delete-otp-row">
+              <input
+                type="text"
+                id="delete-otp-input"
+                placeholder="Enter 6-digit code"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+              />
+              <button class="btn btn-destructive" id="delete-confirm-btn" type="button">Delete my account permanently</button>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="delete-back-btn" type="button" style="margin-top: 8px;">← Cancel</button>
           </div>
         </div>
+
+        <button type="button" onclick="history.back()" class="btn btn-outline" style="margin-top: 1rem;">Back</button>
       </main>
     </div>
   </div>

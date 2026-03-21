@@ -120,47 +120,87 @@ async function handleProfileSave(event) {
     }
 }
 
-async function requestDeleteOTP() {
-    const btn = document.getElementById('request-delete-otp-btn');
-    btn.disabled = true;
-    btn.textContent = 'Sending...';
-    try {
-        await apiPost('/api/users/me/delete/request-otp', {});
-        showSuccess('Deletion OTP sent. Check your email.');
-    } catch (e) {
-        showError(e.message || 'Failed to send deletion OTP');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Send deletion OTP to my email';
-    }
-}
+function initDeleteAccountFlow() {
+    const showBtn = document.getElementById('delete-show-btn');
+    const cancelBtn = document.getElementById('delete-cancel-btn');
+    const requestOTPBtn = document.getElementById('delete-request-otp-btn');
+    const confirmBtn = document.getElementById('delete-confirm-btn');
+    const backBtn = document.getElementById('delete-back-btn');
 
-async function confirmDelete(event) {
-    event.preventDefault();
+    const step1 = document.getElementById('delete-step-1');
+    const step2 = document.getElementById('delete-step-2');
+    const step3 = document.getElementById('delete-step-3');
 
-    const btn = document.getElementById('confirm-delete-btn');
-    const otp = document.getElementById('delete-otp').value.trim();
-
-    if (!/^\d{6}$/.test(otp)) {
-        showError('Please enter a valid 6-digit OTP.');
-        return;
+    function showStep(n) {
+        if (step1) step1.style.display = n === 1 ? '' : 'none';
+        if (step2) step2.style.display = n === 2 ? '' : 'none';
+        if (step3) step3.style.display = n === 3 ? '' : 'none';
     }
 
-    const ok = confirm('This will permanently delete your account. Continue?');
-    if (!ok) return;
+    showBtn?.addEventListener('click', () => showStep(2));
 
-    btn.disabled = true;
-    btn.textContent = 'Deleting...';
+    cancelBtn?.addEventListener('click', () => showStep(1));
 
-    try {
-        await apiPost('/api/users/me/delete/confirm', { otp });
-        sessionStorage.clear();
-        window.location.href = 'login.html';
-    } catch (e) {
-        showError(e.message || 'Failed to delete account');
-        btn.disabled = false;
-        btn.textContent = 'Delete my account';
-    }
+    requestOTPBtn?.addEventListener('click', async () => {
+        requestOTPBtn.disabled = true;
+        requestOTPBtn.textContent = 'Sending...';
+
+        try {
+            await apiPost('/api/users/me/delete/request-otp', {});
+            showStep(3);
+            document.getElementById('delete-otp-input')?.focus();
+            if (typeof showToast === 'function') {
+                showToast('Deletion code sent to your email.', 'success');
+            } else {
+                showSuccess('Deletion code sent to your email.');
+            }
+        } catch (err) {
+            if (typeof showToast === 'function') {
+                showToast(err.message || 'Failed to send code.', 'error');
+            } else {
+                showError(err.message || 'Failed to send code.');
+            }
+        } finally {
+            requestOTPBtn.disabled = false;
+            requestOTPBtn.textContent = 'Yes, send me a deletion code';
+        }
+    });
+
+    backBtn?.addEventListener('click', () => {
+        showStep(1);
+        const otpInput = document.getElementById('delete-otp-input');
+        if (otpInput) otpInput.value = '';
+    });
+
+    confirmBtn?.addEventListener('click', async () => {
+        const otp = document.getElementById('delete-otp-input')?.value?.trim();
+
+        if (!otp || otp.length !== 6) {
+            if (typeof showToast === 'function') {
+                showToast('Enter the 6-digit code from your email.', 'error');
+            } else {
+                showError('Enter the 6-digit code from your email.');
+            }
+            return;
+        }
+
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Deleting...';
+
+        try {
+            await apiPost('/api/users/me/delete/confirm', { otp });
+            sessionStorage.clear();
+            window.location.href = 'login.html?deleted=true';
+        } catch (err) {
+            if (typeof showToast === 'function') {
+                showToast(err.message || 'Deletion failed.', 'error');
+            } else {
+                showError(err.message || 'Deletion failed.');
+            }
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Delete my account permanently';
+        }
+    });
 }
 
 (async function initProfilePage() {
@@ -176,19 +216,7 @@ async function confirmDelete(event) {
     const profileForm = document.getElementById('profile-form');
     if (profileForm) profileForm.addEventListener('submit', handleProfileSave);
 
-    const requestBtn = document.getElementById('request-delete-otp-btn');
-    if (requestBtn) requestBtn.addEventListener('click', requestDeleteOTP);
-
-    const deleteForm = document.getElementById('delete-form');
-    if (deleteForm) deleteForm.addEventListener('submit', confirmDelete);
-
-    const deleteReveal = document.getElementById('delete-account-reveal');
-    const deleteExpanded = document.getElementById('delete-account-expanded');
-    deleteReveal?.addEventListener('click', () => {
-        if (!deleteExpanded) return;
-        const show = deleteExpanded.style.display === 'none';
-        deleteExpanded.style.display = show ? 'block' : 'none';
-    });
+    initDeleteAccountFlow();
 
     // Collapsible password change section toggle
     const passwordToggle = document.getElementById('password-card-toggle');
@@ -199,9 +227,7 @@ async function confirmDelete(event) {
         if (!passwordBody) return;
         const isOpen = passwordBody.style.display !== 'none';
         passwordBody.style.display = isOpen ? 'none' : 'block';
-        if (passwordChevron) {
-            passwordChevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-        }
+        if (passwordChevron) passwordChevron.textContent = isOpen ? '▼' : '▲';
     });
 
     // Password change submit
@@ -274,7 +300,7 @@ async function confirmDelete(event) {
             showToast('Password changed successfully.', 'success');
 
             if (passwordBody) passwordBody.style.display = 'none';
-            if (passwordChevron) passwordChevron.style.transform = 'rotate(0deg)';
+            if (passwordChevron) passwordChevron.textContent = '▼';
         } catch (e) {
             showToast('Network error. Password not changed.', 'error');
         } finally {

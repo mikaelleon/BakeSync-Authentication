@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-const path = require('path');
 const express = require('express');
 const cors = require('cors');
 
@@ -18,11 +17,8 @@ app.use(cors({
     credentials: true
 }));
 
-// Parse JSON bodies (multipart uploads use multer per-route on /api/files)
+// Parse JSON bodies
 app.use(express.json());
-
-// Locally stored uploads (when Cloudinary is not configured)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Root endpoint
 app.get('/', (req, res) => {

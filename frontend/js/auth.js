@@ -90,6 +90,17 @@ function checkRegistrationSuccess() {
     const urlParams = new URLSearchParams(window.location.search);
     const expired = urlParams.get('expired');
 
+    if (urlParams.get('deleted') === 'true') {
+        const infoEl = document.getElementById('login-info');
+        const infoMsgEl = document.getElementById('login-info-message');
+        if (infoEl && infoMsgEl) {
+            infoMsgEl.textContent = 'Your account has been permanently deleted.';
+            infoEl.style.display = 'flex';
+        }
+        window.history.replaceState({}, '', 'login.html');
+        return;
+    }
+
     // Improvement 2: show JWT expiry context.
     if (expired === 'true') {
         const infoEl = document.getElementById('login-info');

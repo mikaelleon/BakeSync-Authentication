@@ -214,8 +214,8 @@ async function loadFilesPreview(limit = 5) {
     if (countEl) countEl.textContent = 'Loading...';
 
     try {
-        const files = await apiGet('/api/files');
-        const safeFiles = Array.isArray(files) ? files : [];
+        const files = normalizeFilesListResponse(await apiGet('/api/files'));
+        const safeFiles = files;
 
         if (countEl) countEl.textContent = `${safeFiles.length} file(s) accessible`;
 
@@ -235,7 +235,9 @@ async function loadFilesPreview(limit = 5) {
         shown.forEach(file => {
             const filename = escapeHtml(file.filename || '');
             const type = escapeHtml(file.file_type || '');
-            const ownerLabel = file.isOwner ? 'You' : `User #${file.owner_id ?? '?'}`;
+            const ownerDisplay = file.isOwner
+                ? 'You'
+                : escapeHtml(file.owner_username || `User #${file.owner_id ?? '?'}`);
             const visibility = file.is_public ? 'Public' : 'Private';
 
             const li = document.createElement('li');
@@ -244,7 +246,7 @@ async function loadFilesPreview(limit = 5) {
                     ${filename}
                     <span class="badge" style="margin-left: 0.5rem;">${type}</span>
                     <span style="display:block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--muted-foreground);">
-                        Owner: ${escapeHtml(ownerLabel)}
+                        Owner: ${ownerDisplay}
                     </span>
                 </span>
                 <span class="time">${visibility}</span>
@@ -289,9 +291,8 @@ function icon(name, className = '') {
         truck: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`,
         'dollar-sign': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
         rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>`,
-        upload: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
-        eye: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
-        'log-in': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
+        globe: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+        'upload-cloud': `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>`,
     };
     const svg = iconMap[name] || iconMap['file-text'];
     if (!className) return svg;
@@ -436,50 +437,57 @@ function dedupeFilesById(files) {
     return [...map.values()];
 }
 
-function resolveMediaUrl(fileUrl) {
-    if (!fileUrl) return null;
-    const s = String(fileUrl).trim();
-    if (/^https?:\/\//i.test(s)) return s;
-    const base = typeof API_BASE !== 'undefined' ? String(API_BASE).replace(/\/$/, '') : '';
-    return base + (s.startsWith('/') ? s : `/${s}`);
+/** Supports `{ files: [...] }` or a legacy raw array. */
+function normalizeFilesListResponse(data) {
+    const raw = Array.isArray(data) ? data : data && Array.isArray(data.files) ? data.files : [];
+    return dedupeFilesById(raw);
 }
 
-function formatFileOwnerLabel(file) {
-    if (!file || file.isOwner) return 'You';
-    if (file.owner_username) return file.owner_username;
-    if (file.owner_id != null) return `User #${file.owner_id}`;
-    return 'Unknown';
+function deduplicateFiles(files) {
+    return dedupeFilesById(Array.isArray(files) ? files : []);
 }
 
 function formatFileSizeKb(kb) {
-    if (kb == null || kb === '' || Number.isNaN(Number(kb))) return null;
+    if (kb == null || Number.isNaN(Number(kb)) || Number(kb) <= 0) return '';
     const n = Number(kb);
-    if (n >= 1024) return `${(n / 1024).toFixed(1)} MB`;
-    return `${n} KB`;
+    if (n < 1024) return `${Math.round(n)} KB`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} MB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} GB`;
 }
 
-function openStoredFile(file) {
-    const url = resolveMediaUrl(file.file_url);
-    if (!url) return false;
-    const name = (file.filename || file.original_name || '').toLowerCase();
-    const mime = String(file.mime_type || '').toLowerCase();
-    if (mime.includes('pdf') || name.endsWith('.pdf')) {
-        window.open(url, '_blank', 'noopener');
-        return true;
-    }
-    if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(name)) {
-        window.open(url, '_blank', 'noopener');
-        return true;
-    }
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.filename || file.original_name || 'download';
-    a.rel = 'noopener';
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    return true;
+function fileOwnerLabelHtml(file) {
+    const own = file.isOwner === 1 || file.isOwner === true;
+    if (own) return '<span class="file-owner-you">You</span>';
+    const name =
+        file.owner_username ||
+        (file.owner_id != null ? `User #${file.owner_id}` : 'Unknown');
+    return `<span class="file-owner-other">${escapeHtml(name)}</span>`;
+}
+
+function fileSizeLabelHtml(file) {
+    const s = formatFileSizeKb(file.file_size_kb);
+    return s ? `<span class="file-size-label">${escapeHtml(s)}</span>` : '';
+}
+
+function visibilityPillHtml(isPublic) {
+    return isPublic
+        ? '<span class="badge-visibility badge-visibility-public">Public</span>'
+        : '<span class="badge-visibility badge-visibility-private">Private</span>';
+}
+
+function refreshFilesDacSummary(allFiles) {
+    const el = document.getElementById('files-dac-summary');
+    if (!el) return;
+    const list = Array.isArray(allFiles) ? allFiles : [];
+    const mine = list.filter((f) => f.isOwner === 1 || f.isOwner === true).length;
+    const other = list.length - mine;
+    el.innerHTML = `
+      <div class="files-dac-summary-inner">
+        <span><strong>${mine}</strong> owned by you</span>
+        <span class="dac-sep" aria-hidden="true">·</span>
+        <span><strong>${other}</strong> from others (shared / public)</span>
+      </div>
+    `;
 }
 
 function ensureFileModal() {
@@ -557,19 +565,46 @@ async function openFileModal(fileId) {
     try {
         const file = await apiGet(`/api/files/${fileId}`);
 
-        const ownerLabel = formatFileOwnerLabel(file);
+        const viewableMime = [
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/webp',
+            'image/gif',
+            'text/plain',
+            'text/csv'
+        ];
+
+        if (file.file_url) {
+            if (file.mime_type && viewableMime.includes(file.mime_type)) {
+                window.open(file.file_url, '_blank', 'noopener,noreferrer');
+                closeFileModal();
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = file.file_url;
+            a.download = file.original_name || file.filename || 'download';
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            closeFileModal();
+            return;
+        }
+
+        const own = file.isOwner === 1 || file.isOwner === true;
+        const ownerHtml = own
+            ? 'You'
+            : escapeHtml(file.owner_username || (file.owner_id != null ? `User #${file.owner_id}` : 'Unknown'));
         const visibility = file.is_public ? 'Public' : 'Private';
-        const sizeLine = formatFileSizeKb(file.file_size_kb);
-        const openBtn = file.file_url
-            ? `<p style="margin-top:1rem;"><button type="button" class="btn btn-primary btn-sm" id="modal-open-file-btn">Open / download file</button></p>`
-            : '';
 
         title.textContent = file.filename || 'File Details';
         body.innerHTML = `
           <p style="margin-bottom: 0.75rem; font-size: 0.875rem;">
-            <span class="visibility-pill ${file.is_public ? 'is-public' : 'is-private'}" style="margin-right:0.5rem;">${escapeHtml(visibility)}</span>
-            <span style="color: var(--muted-foreground); font-size: 0.8125rem;">
-              Owner: ${escapeHtml(ownerLabel)}${sizeLine ? ` · ${escapeHtml(sizeLine)}` : ''}
+            <strong>${escapeHtml(visibility)}</strong>
+            <span style="color: var(--muted-foreground); font-size: 0.8125rem; margin-left: 0.5rem;">
+              Owner: ${ownerHtml}
             </span>
           </p>
           <p style="margin-bottom: 0.75rem; color: var(--muted-foreground); font-size: 0.875rem;">
@@ -578,13 +613,10 @@ async function openFileModal(fileId) {
           <p style="margin-bottom: 0.75rem; color: var(--foreground); font-size: 0.875rem;">
             ${escapeHtml(file.description || 'No description provided.')}
           </p>
-          ${openBtn}
+          <p style="font-size: 0.8125rem; color: var(--muted-foreground);">
+            No file attachment on record — metadata only.
+          </p>
         `;
-
-        const ob = body.querySelector('#modal-open-file-btn');
-        if (ob) {
-            ob.addEventListener('click', () => openStoredFile(file));
-        }
     } catch (err) {
         const msg = (err && err.message) ? err.message : 'Access denied.';
         closeFileModal();
@@ -634,9 +666,6 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
           <div>
             <div class="doc-widget-title">Document Manager</div>
             <div class="doc-widget-subtext">Your files first, then shared documents</div>
-            <p class="doc-widget-dac-hint">
-              DAC: opening another user&rsquo;s <strong>private</strong> file returns 403 — use <strong>View</strong> on a shared file, then try a private one from the full Document Manager to show denial in the audit log.
-            </p>
           </div>
         </div>
 
@@ -650,8 +679,8 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
     const listEl = containerEl.querySelector('#widget-file-list');
     const tabsEl = containerEl.querySelector('#widget-filter-tabs');
 
-    // Local cache: API called once; dedupe by id (guards duplicate rows / double render).
-    const allFiles = dedupeFilesById(await apiGet(apiFilesEndpoint).then((x) => (Array.isArray(x) ? x : [])));
+    // Local cache: API called once; normalize `{ files }` + dedupe by id.
+    const allFiles = normalizeFilesListResponse(await apiGet(apiFilesEndpoint));
     // Improvement 12: own files first, then public files from others (both sorted by created_at desc).
     const myFiles = allFiles
         .filter((f) => !!f.isOwner)
@@ -711,34 +740,41 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 const typeKey = type;
                 const isOwner = !!file.isOwner;
                 const isPublic = file.is_public === 1 || file.is_public === true;
-                const visibilityLabel = isPublic ? 'Public' : 'Private';
-                const ownerLabel = formatFileOwnerLabel(file);
-                const sizeLabel = formatFileSizeKb(file.file_size_kb);
                 const dateTitle = file.created_at ? new Date(file.created_at).toLocaleString() : '';
                 const dateLabel = file.created_at ? timeAgo(file.created_at) : '—';
                 const lockOverlay = !isPublic && !isOwner ? `<div class="file-card-locked" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Access restricted</div>` : '';
                 const lockOwnerMuted = !isPublic && isOwner ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>` : '';
 
+                const visibilityBadgeClass = isPublic ? 'public' : 'private';
+                const ownerIcons = isOwner
+                    ? `
+                  <button type="button" class="btn-icon toggle-visibility-btn" data-toggle-visibility="${escapeHtml(String(file.id))}"
+                    title="${isPublic ? 'Make private' : 'Make public'}" aria-label="Toggle visibility">
+                    ${isPublic ? icon('globe') : icon('lock')}
+                  </button>
+                  <button type="button" class="btn-icon btn-icon-danger delete-btn" data-delete-file="${escapeHtml(String(file.id))}"
+                    title="Delete file" aria-label="Delete file">
+                    ${icon('trash')}
+                  </button>`
+                    : '';
                 return `
                   <div class="file-card ${String(file.id) === String(lastVisibilityUpdatedId) ? 'card-updated' : ''}">
                     <div class="file-card-icon">
                       ${widgetFileTypeIcon(typeKey)}
-                      ${lockOverlay || lockOwnerMuted ? '' : ''}
                     </div>
                     <div class="file-card-body">
                       <div class="file-card-name">${escapeHtml(file.filename || '')}</div>
                       <div class="file-card-meta">
-                        <span class="file-type-badge file-kind">${escapeHtml(typeKey)}</span>
-                        <span class="visibility-pill ${isPublic ? 'is-public' : 'is-private'}">${escapeHtml(visibilityLabel)}</span>
-                        <span class="file-owner">${escapeHtml(ownerLabel)}</span>
-                        ${sizeLabel ? `<span class="file-size-meta">${escapeHtml(sizeLabel)}</span>` : ''}
+                        <span class="file-type-badge ${escapeHtml(visibilityBadgeClass)}">${escapeHtml(typeKey)}</span>
+                        ${fileOwnerLabelHtml(file)}
+                        ${visibilityPillHtml(isPublic)}
+                        ${fileSizeLabelHtml(file)}
                         <span class="file-date" ${dateTitle ? `title="${escapeHtml(dateTitle)}"` : ''}>${escapeHtml(dateLabel)}</span>
                       </div>
                     </div>
                     <div class="file-card-actions">
+                      ${ownerIcons}
                       <button class="btn btn-ghost btn-sm" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
-                      ${isOwner ? `<button class="btn btn-ghost btn-sm" type="button" data-toggle-visibility="${escapeHtml(String(file.id))}">Toggle</button>` : ''}
-                      ${isOwner ? `<button class="btn btn-ghost btn-sm btn-danger" type="button" data-delete-file="${escapeHtml(String(file.id))}">Delete</button>` : ''}
                     </div>
 
                     ${lockOverlay}
@@ -860,7 +896,6 @@ function renderHeaderBlock(role) {
             ${escapeHtml(dateStr)}
           </div>
         </div>
-
       </div>
     `;
     return el;
@@ -1061,7 +1096,7 @@ function renderOnboardingBanner(role, containerEl, stats) {
 
 function renderActivityFeed(activity) {
     const card = document.createElement('div');
-    card.className = 'content-card dashboard-activity-card';
+    card.className = 'content-card';
     card.innerHTML = `
       <h3>Recent Activity</h3>
       <div id="activity-feed"></div>
@@ -1073,24 +1108,14 @@ function renderActivityFeed(activity) {
         return card;
     }
 
-    function activityIconKey(type) {
-        const t = type || 'upload';
-        if (t === 'delete') return 'trash';
-        if (t === 'view') return 'eye';
-        if (t === 'login') return 'log-in';
-        return 'upload';
-    }
-
     el.innerHTML = activity
         .map((item) => {
             const rr = item.uploaderRole && ['admin', 'staff', 'user'].includes(item.uploaderRole)
                 ? item.uploaderRole
                 : '';
             const roleMod = rr ? ` activity-item--role-${rr}` : '';
-            const ik = activityIconKey(item.type);
             return `
-              <div class="activity-item activity-item-row${roleMod}">
-                <div class="activity-item-icon" aria-hidden="true">${icon(ik)}</div>
+              <div class="activity-item${roleMod}">
                 <div class="activity-body">
                   <div class="activity-text">
                     ${escapeHtml(item.text || '')}
@@ -1445,9 +1470,6 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
             const typeKey = file.file_type;
             const isOwner = !!file.isOwner;
             const isPublic = file.is_public === 1 || file.is_public === true;
-            const visibilityLabel = isPublic ? 'Public' : 'Private';
-            const ownerLabel = formatFileOwnerLabel(file);
-            const sizeLabel = formatFileSizeKb(file.file_size_kb);
             const dateLabel = file.created_at ? new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
             const lockedOther = !isPublic && !isOwner;
             const lockedOwner = !isPublic && isOwner;
@@ -1458,6 +1480,18 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
                     ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>`
                     : '';
 
+            const ownerIcons = isOwner
+                ? `
+              <button type="button" class="btn-icon toggle-visibility-btn" data-toggle-visibility="${escapeHtml(String(file.id))}"
+                title="${isPublic ? 'Make private' : 'Make public'}" aria-label="Toggle visibility">
+                ${isPublic ? icon('globe') : icon('lock')}
+              </button>
+              <button type="button" class="btn-icon btn-icon-danger delete-btn" data-delete-file="${escapeHtml(String(file.id))}"
+                title="Delete file" aria-label="Delete file">
+                ${icon('trash')}
+              </button>`
+                : '';
+
             return `
               <div class="file-card ${highlightId && String(file.id) === highlightId ? 'card-updated' : ''}">
                 <div class="file-card-icon">
@@ -1466,17 +1500,16 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
                 <div class="file-card-body">
                   <div class="file-card-name">${escapeHtml(file.filename || '')}</div>
                   <div class="file-card-meta">
-                    <span class="file-type-badge file-kind">${escapeHtml(typeKey)}</span>
-                    <span class="visibility-pill ${isPublic ? 'is-public' : 'is-private'}">${escapeHtml(visibilityLabel)}</span>
-                    <span class="file-owner">${escapeHtml(ownerLabel)}</span>
-                    ${sizeLabel ? `<span class="file-size-meta">${escapeHtml(sizeLabel)}</span>` : ''}
+                    <span class="file-type-badge ${isPublic ? 'public' : 'private'}">${escapeHtml(typeKey)}</span>
+                    ${fileOwnerLabelHtml(file)}
+                    ${visibilityPillHtml(isPublic)}
+                    ${fileSizeLabelHtml(file)}
                     <span class="file-date">${escapeHtml(dateLabel)}</span>
                   </div>
                 </div>
                 <div class="file-card-actions">
+                  ${ownerIcons}
                   <button class="btn btn-ghost btn-sm" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
-                  ${isOwner ? `<button class="btn btn-ghost btn-sm" type="button" data-toggle-visibility="${escapeHtml(String(file.id))}">${isPublic ? 'Make Private' : 'Make Public'}</button>` : ''}
-                  ${isOwner ? `<button class="btn btn-ghost btn-sm btn-danger" type="button" data-delete-file="${escapeHtml(String(file.id))}">Delete</button>` : ''}
                 </div>
                 ${cardLocked}
               </div>
@@ -1566,65 +1599,25 @@ async function initFilesPage() {
     const searchEl = document.getElementById('files-search');
     const uploadPanel = document.getElementById('files-upload-panel');
     const filenameInput = document.getElementById('files-upload-filename');
-    const typeSelect = document.getElementById('files-upload-type');
-    const toggleBtn = document.getElementById('files-upload-toggle');
-    const cancelBtn = document.getElementById('files-upload-cancel');
-    const submitBtn = document.getElementById('files-upload-submit');
-    const fileInput = document.getElementById('files-file-input');
-    const dropZone = document.getElementById('file-drop-zone');
-    const selectedPreview = document.getElementById('files-selected-preview');
-    const selectedNameEl = document.getElementById('files-selected-name');
-    const clearFileBtn = document.getElementById('files-clear-file');
-    const progressWrap = document.getElementById('upload-progress-wrap');
-    const progressFill = document.getElementById('upload-progress-fill');
-    const progressText = document.getElementById('upload-progress-text');
 
     if (!files || !tabsEl) return;
 
-    const MAX_UPLOAD_BYTES = 250 * 1024 * 1024;
     let selectedFile = null;
 
-    // Load file data once; dedupe by id so tab counts stay accurate.
-    let allFiles = dedupeFilesById(await apiGet('/api/files').then((x) => (Array.isArray(x) ? x : [])));
-    allFiles = allFiles.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Load file data once.
+    let allFiles = normalizeFilesListResponse(await apiGet('/api/files')).slice()
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    refreshFilesDacSummary(allFiles);
 
     let uploadPanelOpen = action === 'upload';
     let highlightFileId = null;
 
-    function pushFilesUrl() {
-        const url = new URL(window.location.href);
-        if (uploadPanelOpen) url.searchParams.set('action', 'upload');
-        else url.searchParams.delete('action');
-        if (currentTab === 'all') url.searchParams.delete('type');
-        else url.searchParams.set('type', currentTab);
-        const qs = url.searchParams.toString();
-        history.pushState({}, '', qs ? `${url.pathname}?${qs}` : url.pathname);
-        if (typeof setActiveNavItem === 'function') setActiveNavItem();
-        if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
-    }
-
-    function syncUploadToggleUi() {
-        if (!toggleBtn) return;
-        if (uploadPanelOpen) {
-            toggleBtn.textContent = 'Close upload';
-            toggleBtn.classList.remove('btn-primary');
-            toggleBtn.classList.add('btn-outline');
-        } else {
-            toggleBtn.textContent = '+ Add New Document';
-            toggleBtn.classList.add('btn-primary');
-            toggleBtn.classList.remove('btn-outline');
-        }
-    }
-
-    function setSelectedFile(file) {
-        selectedFile = file || null;
-        if (selectedPreview) selectedPreview.style.display = selectedFile ? 'flex' : 'none';
-        if (selectedNameEl && selectedFile) {
-            selectedNameEl.textContent = `${selectedFile.name} (${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB)`;
-        }
-        if (filenameInput && selectedFile && !String(filenameInput.value || '').trim()) {
-            filenameInput.value = selectedFile.name;
-        }
+    async function reloadFilesFromApi() {
+        const raw = await apiGet('/api/files');
+        allFiles = normalizeFilesListResponse(raw).slice()
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        refreshFilesDacSummary(allFiles);
+        rerender();
     }
 
     function setActiveTab(tabKey) {
@@ -1659,14 +1652,14 @@ async function initFilesPage() {
             .join('');
     }
 
-    refreshTabs();
-
     function rerender() {
         refreshTabs();
+        refreshFilesDacSummary(allFiles);
         renderFileCards(files, allFiles, currentTab, searchQuery, {
             highlightFileId,
             onDelete: (deletedFileId) => {
                 allFiles = allFiles.filter((f) => String(f.id) !== String(deletedFileId));
+                refreshFilesDacSummary(allFiles);
                 rerender();
             },
             onVisibilityToggle: (fileId, nextIsPublic) => {
@@ -1685,84 +1678,6 @@ async function initFilesPage() {
         });
     }
 
-    function openUploadPanel() {
-        if (!uploadPanel) return;
-        uploadPanelOpen = true;
-        uploadPanel.classList.remove('collapsed');
-        uploadPanel.classList.add('open');
-        syncUploadToggleUi();
-        pushFilesUrl();
-        if (filenameInput) filenameInput.focus();
-    }
-
-    function closeUploadPanel() {
-        if (!uploadPanel) return;
-        uploadPanelOpen = false;
-        uploadPanel.classList.remove('open');
-        uploadPanel.classList.add('collapsed');
-        if (progressWrap) progressWrap.style.display = 'none';
-        if (progressFill) progressFill.style.width = '0%';
-        syncUploadToggleUi();
-        pushFilesUrl();
-    }
-
-    function applyUrlFromLocation() {
-        const p = new URLSearchParams(window.location.search);
-        const t = p.get('type');
-        let next = t ? getTabFromType(t) : defaultType;
-        if (!['all', 'recipe', 'report', 'schedule', 'invoice'].includes(next)) next = defaultType;
-        currentTab = next;
-        uploadPanelOpen = p.get('action') === 'upload';
-        if (uploadPanel) {
-            if (uploadPanelOpen) {
-                uploadPanel.classList.remove('collapsed');
-                uploadPanel.classList.add('open');
-            } else {
-                uploadPanel.classList.remove('open');
-                uploadPanel.classList.add('collapsed');
-            }
-        }
-        syncUploadToggleUi();
-        if (typeSelect) typeSelect.value = currentTab !== 'all' ? currentTab : roleDefaultType;
-        rerender();
-        updateFilesPageTitle(currentTab);
-    }
-
-    window.addEventListener('popstate', applyUrlFromLocation);
-
-    document.addEventListener(
-        'click',
-        function bakesyncFilesSidebarSpa(ev) {
-            const a = ev.target.closest('a.sidebar-link[href*="files.html"]');
-            if (!a || !a.closest('.sidebar')) return;
-            if (!window.location.pathname.endsWith('files.html')) return;
-            ev.preventDefault();
-            ev.stopImmediatePropagation();
-            const u = new URL(a.getAttribute('href'), window.location.origin);
-            const type = u.searchParams.get('type');
-            const act = u.searchParams.get('action');
-            let next = type ? getTabFromType(type) : 'all';
-            if (!['all', 'recipe', 'report', 'schedule', 'invoice'].includes(next)) next = 'all';
-            currentTab = next;
-            uploadPanelOpen = act === 'upload';
-            if (uploadPanel) {
-                if (uploadPanelOpen) {
-                    uploadPanel.classList.remove('collapsed');
-                    uploadPanel.classList.add('open');
-                } else {
-                    uploadPanel.classList.remove('open');
-                    uploadPanel.classList.add('collapsed');
-                }
-            }
-            syncUploadToggleUi();
-            if (typeSelect) typeSelect.value = currentTab !== 'all' ? currentTab : roleDefaultType;
-            pushFilesUrl();
-            rerender();
-            updateFilesPageTitle(currentTab);
-        },
-        true
-    );
-
     rerender();
     updateFilesPageTitle(currentTab);
     if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
@@ -1772,11 +1687,24 @@ async function initFilesPage() {
         if (!btn) return;
         const nextTab = btn.getAttribute('data-tab');
         setActiveTab(nextTab);
+
+        // Update URL param without reloading
+        const url = new URL(window.location.href);
+        if (uploadPanelOpen) url.searchParams.set('action', 'upload');
+        else url.searchParams.delete('action');
+        if (nextTab === 'all') url.searchParams.delete('type');
+        else url.searchParams.set('type', nextTab);
+        const qs = url.searchParams.toString();
+        history.pushState({}, '', qs ? (url.pathname + '?' + qs) : url.pathname);
+        if (typeof setActiveNavItem === 'function') setActiveNavItem();
+
+        // Role-aware upload defaults: keep upload panel file type aligned to active tab
         if (typeSelect) {
             typeSelect.value = nextTab !== 'all' ? nextTab : roleDefaultType;
         }
-        pushFilesUrl();
+
         updateFilesPageTitle(nextTab);
+        if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
     });
 
     if (searchEl) {
@@ -1787,147 +1715,216 @@ async function initFilesPage() {
         searchEl.addEventListener('input', handleSearch);
     }
 
+    // Upload panel handling
+    const toggleBtn = document.getElementById('files-upload-toggle');
+    const cancelBtn = document.getElementById('files-upload-cancel');
+    const submitBtn = document.getElementById('files-upload-submit');
+    const typeSelect = document.getElementById('files-upload-type');
+
+    function openUploadPanel() {
+        if (!uploadPanel) return;
+        uploadPanelOpen = true;
+        uploadPanel.classList.remove('collapsed');
+        uploadPanel.classList.add('open');
+        hideFilesUploadError();
+        if (filenameInput) filenameInput.focus();
+        uploadPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function closeUploadPanel() {
+        if (!uploadPanel) return;
+        uploadPanelOpen = false;
+        uploadPanel.classList.remove('open');
+        uploadPanel.classList.add('collapsed');
+    }
+
+    // Collapsed by default
     if (uploadPanel) {
-        if (uploadPanelOpen) {
-            uploadPanel.classList.remove('collapsed');
-            uploadPanel.classList.add('open');
-        } else {
-            uploadPanel.classList.remove('open');
-            uploadPanel.classList.add('collapsed');
-        }
+        uploadPanel.classList.remove('open');
+        uploadPanel.classList.add('collapsed');
     }
-    syncUploadToggleUi();
 
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            if (uploadPanelOpen) closeUploadPanel();
-            else openUploadPanel();
-        });
+    if (toggleBtn) toggleBtn.addEventListener('click', openUploadPanel);
+
+    if (action === 'upload') {
+        openUploadPanel();
     }
-    if (cancelBtn) cancelBtn.addEventListener('click', closeUploadPanel);
 
+    // Default type selection based on active tab or role-appropriate fallback.
     const defaultUploadType = currentTab !== 'all' ? currentTab : (role === 'user' ? 'invoice' : 'recipe');
     if (typeSelect) typeSelect.value = defaultUploadType;
 
-    if (fileInput) {
+    const dropzone = document.getElementById('files-upload-dropzone');
+    const fileInput = document.getElementById('files-file-input');
+    const previewEl = document.getElementById('files-upload-file-preview');
+    const uploadErrorEl = document.getElementById('files-upload-error');
+    const dzIcon = document.querySelector('#files-upload-dropzone .upload-dropzone-icon');
+    if (dzIcon) dzIcon.innerHTML = icon('upload-cloud');
+
+    function showFilesUploadError(msg) {
+        if (!uploadErrorEl) return;
+        uploadErrorEl.textContent = msg;
+        uploadErrorEl.style.display = '';
+    }
+
+    function hideFilesUploadError() {
+        if (!uploadErrorEl) return;
+        uploadErrorEl.style.display = 'none';
+    }
+
+    function validateFilesUploadForm() {
+        const fn = document.getElementById('files-upload-filename')?.value?.trim();
+        const tp = typeSelect?.value;
+        if (submitBtn) submitBtn.disabled = !(selectedFile && fn && tp);
+    }
+
+    function resetFilesUploadForm() {
+        selectedFile = null;
+        if (fileInput) fileInput.value = '';
+        ['files-upload-filename', 'files-upload-description'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const priv = document.querySelector('input[name="files-upload-visibility"][value="0"]');
+        if (priv) priv.checked = true;
+        if (previewEl) previewEl.style.display = 'none';
+        if (dropzone) dropzone.style.display = '';
+        if (submitBtn) submitBtn.disabled = true;
+        hideFilesUploadError();
+        const prog = document.getElementById('files-upload-progress-wrap');
+        if (prog) prog.style.display = 'none';
+        if (typeSelect) typeSelect.value = currentTab !== 'all' ? currentTab : roleDefaultType;
+        validateFilesUploadForm();
+    }
+
+    function handleFilesFileSelect(file) {
+        const MAX = 250 * 1024 * 1024;
+        if (file.size > MAX) {
+            showFilesUploadError(
+                `File is too large (${formatFileSizeKb(Math.ceil(file.size / 1024))}). Maximum size is 250 MB.`
+            );
+            return;
+        }
+        hideFilesUploadError();
+        selectedFile = file;
+        const nameEl = document.getElementById('files-upload-file-name');
+        const sizeEl = document.getElementById('files-upload-file-size');
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = formatFileSizeKb(Math.ceil(file.size / 1024));
+        if (previewEl) previewEl.style.display = '';
+        if (dropzone) dropzone.style.display = 'none';
+        const fnEl = document.getElementById('files-upload-filename');
+        if (fnEl && !fnEl.value) fnEl.value = file.name;
+        validateFilesUploadForm();
+    }
+
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const f = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) handleFilesFileSelect(f);
+        });
         fileInput.addEventListener('change', () => {
             const f = fileInput.files && fileInput.files[0];
-            if (f) {
-                if (f.size > MAX_UPLOAD_BYTES) {
-                    showToast('File exceeds 250 MB limit.', 'error');
-                    fileInput.value = '';
-                    setSelectedFile(null);
-                    return;
-                }
-                setSelectedFile(f);
-            }
+            if (f) handleFilesFileSelect(f);
         });
     }
 
-    if (clearFileBtn) {
-        clearFileBtn.addEventListener('click', () => {
-            if (fileInput) fileInput.value = '';
-            setSelectedFile(null);
-        });
-    }
+    document.getElementById('files-upload-file-remove')?.addEventListener('click', () => {
+        resetFilesUploadForm();
+    });
 
-    if (dropZone && fileInput) {
-        ['dragenter', 'dragover'].forEach((ev) => {
-            dropZone.addEventListener(ev, (e) => {
-                e.preventDefault();
-                dropZone.classList.add('file-drop-zone-active');
-            });
-        });
-        ['dragleave', 'drop'].forEach((ev) => {
-            dropZone.addEventListener(ev, (e) => {
-                e.preventDefault();
-                dropZone.classList.remove('file-drop-zone-active');
-            });
-        });
-        dropZone.addEventListener('drop', (e) => {
-            const f = e.dataTransfer.files && e.dataTransfer.files[0];
-            if (!f) return;
-            if (f.size > MAX_UPLOAD_BYTES) {
-                showToast('File exceeds 250 MB limit.', 'error');
-                return;
-            }
-            setSelectedFile(f);
-        });
-        dropZone.addEventListener('click', () => fileInput.click());
-    }
+    document.getElementById('files-upload-filename')?.addEventListener('input', validateFilesUploadForm);
+    typeSelect?.addEventListener('change', validateFilesUploadForm);
 
     if (submitBtn) {
-        submitBtn.addEventListener('click', async () => {
+        submitBtn.addEventListener('click', () => {
+            if (!selectedFile) return;
+
             const filename = document.getElementById('files-upload-filename')?.value?.trim();
-            const file_type = document.getElementById('files-upload-type')?.value;
+            const file_type = typeSelect?.value;
             const description = document.getElementById('files-upload-description')?.value?.trim() || '';
-            const isPublicFlag = document.querySelector('input[name="files-is-public"]:checked')?.value === '1';
+            const is_public = document.querySelector('input[name="files-upload-visibility"]:checked')?.value || '0';
 
-            if (!filename && !selectedFile) {
-                showToast('Choose a file or enter a filename.', 'error');
+            if (!filename || !file_type) {
+                showFilesUploadError('Please fill in all required fields.');
                 return;
             }
 
-            if (selectedFile && selectedFile.size > MAX_UPLOAD_BYTES) {
-                showToast('File exceeds 250 MB limit.', 'error');
-                return;
-            }
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('filename', filename);
+            formData.append('description', description);
+            formData.append('file_type', file_type);
+            formData.append('is_public', is_public);
 
-            try {
-                if (typeof apiUploadMultipart !== 'function') {
-                    throw new Error('Upload helper missing');
-                }
+            const token = sessionStorage.getItem('token');
+            const progressWrap = document.getElementById('files-upload-progress-wrap');
+            const progressFill = document.getElementById('files-upload-progress-fill');
+            const progressText = document.getElementById('files-upload-progress-text');
 
-                if (selectedFile) {
-                    const fd = new FormData();
-                    fd.append('file', selectedFile);
-                    fd.append('filename', filename || selectedFile.name);
-                    fd.append('file_type', file_type);
-                    if (description) fd.append('description', description);
-                    fd.append('is_public', isPublicFlag ? '1' : '0');
+            submitBtn.disabled = true;
+            hideFilesUploadError();
+            if (progressWrap) progressWrap.style.display = '';
+            if (progressFill) progressFill.style.width = '0%';
+            if (progressText) progressText.textContent = '0%';
 
-                    if (progressWrap) progressWrap.style.display = 'block';
-                    if (progressFill) progressFill.style.width = '0%';
-                    if (progressText) progressText.textContent = 'Uploading…';
+            const xhr = new XMLHttpRequest();
 
-                    await apiUploadMultipart('/api/files', fd, (loaded, total) => {
-                        const pct = total ? Math.round((loaded / total) * 100) : 0;
-                        if (progressFill) progressFill.style.width = `${pct}%`;
-                        if (progressText) {
-                            const mbL = (loaded / (1024 * 1024)).toFixed(1);
-                            const mbT = (total / (1024 * 1024)).toFixed(1);
-                            progressText.textContent = `${pct}% (${mbL} MB / ${mbT} MB)`;
-                        }
-                    });
-                } else {
-                    await apiPost('/api/files', {
-                        filename,
-                        description: description || null,
-                        file_type,
-                        is_public: isPublicFlag,
-                    });
-                }
+            xhr.upload.addEventListener('progress', (e) => {
+                if (!e.lengthComputable) return;
+                const pct = Math.round((e.loaded / e.total) * 100);
+                if (progressFill) progressFill.style.width = `${pct}%`;
+                if (progressText) progressText.textContent = `${pct}%`;
+            });
 
-                allFiles = dedupeFilesById(await apiGet('/api/files').then((x) => (Array.isArray(x) ? x : [])));
-                allFiles = allFiles.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                if (fileInput) fileInput.value = '';
-                setSelectedFile(null);
-                document.getElementById('files-upload-description').value = '';
-                document.getElementById('files-upload-filename').value = '';
-                closeUploadPanel();
-                showToast('File uploaded successfully.', 'success');
-                rerender();
-            } catch (e) {
-                showToast(String(e.message || 'Upload failed'), 'error');
+            xhr.addEventListener('load', () => {
                 if (progressWrap) progressWrap.style.display = 'none';
-            }
+                try {
+                    const data = JSON.parse(xhr.responseText || '{}');
+                    if (xhr.status === 201) {
+                        closeUploadPanel();
+                        resetFilesUploadForm();
+                        showToast('File uploaded successfully.', 'success');
+                        reloadFilesFromApi();
+                    } else {
+                        showFilesUploadError(data.error || 'Upload failed. Please try again.');
+                        submitBtn.disabled = false;
+                    }
+                } catch (_) {
+                    showFilesUploadError('Unexpected server response. Please try again.');
+                    submitBtn.disabled = false;
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                if (progressWrap) progressWrap.style.display = 'none';
+                showFilesUploadError('Network error. Please check your connection.');
+                submitBtn.disabled = false;
+            });
+
+            xhr.open('POST', `${API_BASE}/api/files`);
+            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            xhr.send(formData);
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            closeUploadPanel();
+            resetFilesUploadForm();
         });
     }
 }
 
 function initPageTransitions() {
     document.addEventListener('click', function (e) {
-        if (e.defaultPrevented) return;
         const link = e.target.closest('a[href]');
         if (!link) return;
 

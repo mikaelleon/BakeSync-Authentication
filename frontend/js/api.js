@@ -67,51 +67,6 @@ async function apiPost(endpoint, body) {
 }
 
 /**
- * Multipart POST (e.g. file upload). Do not set Content-Type — browser sets boundary.
- * @param {string} endpoint
- * @param {FormData} formData
- * @param {(loaded: number, total: number) => void} [onProgress]
- */
-function apiUploadMultipart(endpoint, formData, onProgress) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE}${endpoint}`);
-        const token = sessionStorage.getItem('token');
-        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable && typeof onProgress === 'function') {
-                onProgress(e.loaded, e.total);
-            }
-        };
-
-        xhr.onload = () => {
-            let data = {};
-            try {
-                data = JSON.parse(xhr.responseText || '{}');
-            } catch (_) {
-                data = {};
-            }
-            if (xhr.status === 401) {
-                sessionStorage.clear();
-                window.__bakesyncJwtExpiredRedirected = true;
-                window.location.href = 'login.html?expired=true';
-                reject(new Error('Unauthorized'));
-                return;
-            }
-            if (xhr.status < 200 || xhr.status >= 300) {
-                reject(new Error(data.error || 'Upload failed'));
-                return;
-            }
-            resolve(data);
-        };
-
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.send(formData);
-    });
-}
-
-/**
  * GET request helper
  */
 async function apiGet(endpoint) {
@@ -137,6 +92,33 @@ async function apiPatch(endpoint, body) {
         method: 'PATCH',
         body: JSON.stringify(body)
     });
+}
+
+/**
+ * POST multipart/form-data (no JSON Content-Type — browser sets boundary).
+ * @returns {Promise<{ ok: boolean, status: number, data: object }>}
+ */
+async function apiPostFormData(endpoint, formData) {
+    const token = sessionStorage.getItem('token');
+    const headers = {};
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData
+    });
+
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (e) {
+        data = {};
+    }
+
+    return { ok: response.ok, status: response.status, data };
 }
 
 /**

@@ -24,12 +24,13 @@ CREATE TABLE IF NOT EXISTS users (
 -- Files table for DAC demonstration
 CREATE TABLE IF NOT EXISTS files (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    filename VARCHAR(255) NOT NULL,
+    filename VARCHAR(100) NOT NULL,
     description TEXT,
     file_url VARCHAR(500) DEFAULT NULL,
-    file_size_kb INT DEFAULT NULL,
+    file_size_kb INT UNSIGNED DEFAULT NULL,
     original_name VARCHAR(255) DEFAULT NULL,
     mime_type VARCHAR(100) DEFAULT NULL,
+    cloudinary_public_id VARCHAR(255) DEFAULT NULL,
     file_type ENUM('recipe', 'report', 'schedule', 'invoice') NOT NULL,
     owner_id INT NOT NULL,
     is_public TINYINT(1) DEFAULT 0,
@@ -86,3 +87,10 @@ INSERT INTO files (filename, description, file_type, owner_id, is_public) VALUES
 -- ALTER TABLE users
 --   DROP COLUMN IF EXISTS delete_otp_code,
 --   DROP COLUMN IF EXISTS delete_otp_expires_at;
+
+-- Migration: add Cloudinary / storage columns to existing `files` table (Aiven / MySQL 8):
+-- ALTER TABLE files ADD COLUMN file_url VARCHAR(500) DEFAULT NULL AFTER description;
+-- ALTER TABLE files ADD COLUMN file_size_kb INT UNSIGNED DEFAULT NULL AFTER file_url;
+-- ALTER TABLE files ADD COLUMN original_name VARCHAR(255) DEFAULT NULL AFTER file_size_kb;
+-- ALTER TABLE files ADD COLUMN mime_type VARCHAR(100) DEFAULT NULL AFTER original_name;
+-- ALTER TABLE files ADD COLUMN cloudinary_public_id VARCHAR(255) DEFAULT NULL AFTER mime_type;

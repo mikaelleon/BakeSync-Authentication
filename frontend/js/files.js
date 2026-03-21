@@ -29,7 +29,8 @@ async function loadFiles() {
         loading.style.display = 'block';
         tableBody.innerHTML = '';
 
-        currentFiles = await apiGet('/api/files');
+        const raw = await apiGet('/api/files');
+        currentFiles = Array.isArray(raw) ? raw : raw && Array.isArray(raw.files) ? raw.files : [];
 
         loading.style.display = 'none';
 

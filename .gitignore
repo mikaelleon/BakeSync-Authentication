@@ -19,9 +19,6 @@ yarn-error.log*
 # env files
 .env*
 
-# Local file uploads (when not using Cloudinary)
-backend/uploads/
-
 # vercel
 .vercel
 

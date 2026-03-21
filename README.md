@@ -57,11 +57,8 @@ BakeSync/
 - **GET** `/api/dashboard/user` - User only
 
 ### Files (DAC Protected)
-- **GET** `/api/files` - List accessible files (includes `owner_username`; deduped by `id`)
-
-**File uploads:** Run `backend/migrations/002_files_storage.sql` on MySQL to add `file_url`, `file_size_kb`, `original_name`, `mime_type`. Without these columns, file APIs will error until migrated.
-
-- **POST** `/api/files` — JSON (metadata-only) or `multipart/form-data` with field `file` (max 250 MB). Files are stored locally under `/uploads` unless `CLOUDINARY_URL` is set (then uploaded to Cloudinary).
+- **GET** `/api/files` - List accessible files
+- **POST** `/api/files` - Create new file
 - **GET** `/api/files/:id` - View file (owner or public)
 - **DELETE** `/api/files/:id` - Delete file (owner only)
 - **PATCH** `/api/files/:id/visibility` - Toggle visibility (owner only)
@@ -91,7 +88,7 @@ BakeSync/
 
 ### 1. Database Setup
 
-Run `database/schema.sql` on your MySQL instance.
+Run `database/schema.sql` on your MySQL instance. If the database already existed before file uploads were added, also run `database/migrations/001_files_storage.sql` once.
 
 ### 2. Backend Setup
 
@@ -115,6 +112,11 @@ DB_SSL=false
 
 JWT_SECRET=your-secret-key
 RESEND_API_KEY=your-resend-key
+
+# Cloudinary (Document Manager — real file uploads, up to 250 MB)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 Start the server:

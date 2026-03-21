@@ -1,16 +1,10 @@
 const express = require('express');
-const multer = require('multer');
 const authMiddleware = require('../middleware/auth');
 const pool = require('../config/db');
 const { requireRole } = require('../middleware/rbac');
-const { persistUploadedFile } = require('../utils/fileStorage');
+const { upload, cloudinary } = require('../utils/upload');
 
 const router = express.Router();
-
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 250 * 1024 * 1024 },
-});
 
 async function logAccess({ userId, fileId, action, result, reason }) {
     try {
@@ -24,72 +18,93 @@ async function logAccess({ userId, fileId, action, result, reason }) {
     }
 }
 
-function dedupeRowsById(rows) {
-    const map = new Map();
-    for (const row of rows || []) {
-        if (!row || row.id == null) continue;
-        const k = String(row.id);
-        if (!map.has(k)) map.set(k, row);
-    }
-    return [...map.values()];
-}
-
-function mapFileRow(file, userId) {
+function mapFileRow(row, userId) {
+    if (!row) return null;
+    const isOwner = row.isOwner === 1 || row.isOwner === true;
     return {
-        ...file,
-        isOwner: file.owner_id === userId,
+        id: row.id,
+        filename: row.filename,
+        description: row.description,
+        file_url: row.file_url,
+        file_size_kb: row.file_size_kb,
+        original_name: row.original_name,
+        mime_type: row.mime_type,
+        file_type: row.file_type,
+        owner_id: row.owner_id,
+        is_public: row.is_public,
+        created_at: row.created_at,
+        owner_username: row.owner_username,
+        owner_role: row.owner_role,
+        isOwner
     };
 }
 
 /**
  * GET /api/files
- * Owned + public files; includes owner username for UI. Rows deduped by id.
+ * One row per file; join owner for username (GROUP BY guards accidental row multiplication).
  */
 router.get('/', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
         const [rows] = await pool.execute(
-            `SELECT f.id,
-                    f.filename,
-                    f.description,
-                    f.file_type,
-                    f.owner_id,
-                    f.is_public,
-                    f.created_at,
-                    f.file_url,
-                    f.file_size_kb,
-                    f.original_name,
-                    f.mime_type,
-                    u.username AS owner_username
+            `SELECT
+               f.id,
+               f.filename,
+               f.description,
+               f.file_url,
+               f.file_size_kb,
+               f.original_name,
+               f.mime_type,
+               f.file_type,
+               f.owner_id,
+               f.is_public,
+               f.created_at,
+               f.cloudinary_public_id,
+               u.username AS owner_username,
+               u.role AS owner_role,
+               (f.owner_id = ?) AS isOwner
              FROM files f
-             LEFT JOIN users u ON u.id = f.owner_id
+             JOIN users u ON f.owner_id = u.id
              WHERE f.owner_id = ? OR f.is_public = 1
-             ORDER BY f.created_at DESC`,
-            [userId]
+             GROUP BY
+               f.id,
+               f.filename,
+               f.description,
+               f.file_url,
+               f.file_size_kb,
+               f.original_name,
+               f.mime_type,
+               f.file_type,
+               f.owner_id,
+               f.is_public,
+               f.created_at,
+               f.cloudinary_public_id,
+               u.username,
+               u.role
+             ORDER BY (f.owner_id = ?) DESC, f.created_at DESC`,
+            [userId, userId, userId]
         );
 
-        const unique = dedupeRowsById(rows);
-        res.status(200).json(unique.map((file) => mapFileRow(file, userId)));
+        const files = (rows || []).map((r) => mapFileRow(r, userId));
+        res.status(200).json({ files });
     } catch (error) {
-        const msg = error && error.message ? error.message : String(error);
-        if (msg.includes('Unknown column') && msg.includes('file_url')) {
-            console.error('[Files] Add storage columns: run backend/migrations/002_files_storage.sql');
-        }
-        console.error('[Files] Get files error:', msg);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('[Files] Get files error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Failed to retrieve files.' });
     }
 });
 
-function optionalMultipartUpload(req, res, next) {
-    const ct = (req.headers['content-type'] || '').toLowerCase();
-    if (!ct.includes('multipart/form-data')) return next();
-    return upload.single('file')(req, res, (err) => {
+function uploadSingleMiddleware(req, res, next) {
+    upload.single('file')(req, res, (err) => {
         if (err) {
             if (err.code === 'LIMIT_FILE_SIZE') {
-                return res.status(400).json({ error: 'File exceeds 250 MB limit.' });
+                return res.status(413).json({ error: 'File exceeds the 250 MB size limit.' });
             }
-            return res.status(400).json({ error: err.message || 'Upload failed' });
+            if (String(err.message || '').startsWith('File type not allowed')) {
+                return res.status(415).json({ error: err.message });
+            }
+            console.error('[Files] Multer error:', err.message || err);
+            return res.status(500).json({ error: 'File upload failed.' });
         }
         next();
     });
@@ -97,82 +112,79 @@ function optionalMultipartUpload(req, res, next) {
 
 /**
  * POST /api/files
- * JSON (legacy): metadata-only record.
- * multipart/form-data: file field + filename, file_type, description, is_public — stores binary via Cloudinary or local /uploads.
+ * Multipart upload (field name: file) + metadata fields.
  */
-router.post('/', authMiddleware, optionalMultipartUpload, async (req, res) => {
+router.post('/', authMiddleware, uploadSingleMiddleware, async (req, res) => {
     try {
-        const ownerId = req.user.id;
-        let filename;
-        let description = null;
-        let file_type;
-        let isPublicValue;
-        let fileUrl = null;
-        let fileSizeKb = null;
-        let originalName = null;
-        let mimeType = null;
+        const userId = req.user.id;
 
-        if (req.file && req.file.buffer) {
-            originalName = req.file.originalname || 'upload';
-            filename = (req.body.filename && String(req.body.filename).trim()) || originalName;
-            description = req.body.description ? String(req.body.description).trim() : null;
-            file_type = req.body.file_type;
-            const vis = req.body.is_public;
-            isPublicValue = vis === true || vis === 'true' || vis === '1' || vis === 1 ? 1 : 0;
-
-            const stored = await persistUploadedFile(req.file.buffer, originalName, req.file.mimetype);
-            fileUrl = stored.file_url;
-            fileSizeKb = stored.file_size_kb;
-            mimeType = stored.mime_type;
-        } else {
-            const body = req.body || {};
-            filename = body.filename;
-            description = body.description || null;
-            file_type = body.file_type;
-            isPublicValue = body.is_public ? 1 : 0;
+        if (!req.file) {
+            return res.status(400).json({ error: 'A file is required.' });
         }
 
-        if (!filename || !file_type) {
-            return res.status(400).json({ error: 'Filename and file type are required' });
+        const filename =
+            (req.body.filename && String(req.body.filename).trim()) ||
+            req.file.originalname ||
+            'Untitled';
+        const description =
+            req.body.description && String(req.body.description).trim()
+                ? String(req.body.description).trim()
+                : null;
+        const file_type = req.body.file_type;
+        const rawPublic = req.body.is_public;
+        const is_public =
+            rawPublic === 'true' || rawPublic === '1' || rawPublic === 1 || rawPublic === true ? 1 : 0;
+
+        if (!file_type) {
+            return res.status(400).json({ error: 'file_type is required.' });
         }
 
         const validTypes = ['recipe', 'report', 'schedule', 'invoice'];
         if (!validTypes.includes(file_type)) {
-            return res.status(400).json({ error: 'Invalid file type' });
+            return res.status(400).json({
+                error: 'Invalid file type. Must be recipe, report, schedule, or invoice.'
+            });
         }
 
+        const file_url = req.file.path || null;
+        const file_size_kb = req.file.size != null ? Math.ceil(req.file.size / 1024) : null;
+        const original_name = req.file.originalname || null;
+        const mime_type = req.file.mimetype || null;
+        const cloudinary_public_id = req.file.filename || null;
+
         const [result] = await pool.execute(
-            `INSERT INTO files (filename, description, file_type, owner_id, is_public, file_url, file_size_kb, original_name, mime_type)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO files
+              (filename, description, file_url, file_size_kb, original_name, mime_type,
+               cloudinary_public_id, file_type, owner_id, is_public)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 filename,
                 description,
+                file_url,
+                file_size_kb,
+                original_name,
+                mime_type,
+                cloudinary_public_id,
                 file_type,
-                ownerId,
-                isPublicValue,
-                fileUrl,
-                fileSizeKb,
-                originalName,
-                mimeType,
+                userId,
+                is_public
             ]
         );
 
         res.status(201).json({
-            message: 'File created',
+            message: 'File uploaded successfully.',
             fileId: result.insertId,
+            fileUrl: file_url
         });
-    } catch (error) {
-        const msg = error && error.message ? error.message : String(error);
-        if (msg.includes('Unknown column') && msg.includes('file_url')) {
-            console.error('[Files] Add storage columns: run backend/migrations/002_files_storage.sql');
-        }
-        console.error('[Files] Upload error:', msg);
-        res.status(500).json({ error: 'Internal server error' });
+    } catch (err) {
+        console.error('[Files] Upload error:', err && err.message ? err.message : err);
+        res.status(500).json({ error: 'File upload failed.' });
     }
 });
 
 /**
- * GET /api/files/logs/denied — must be registered before /:id
+ * GET /api/files/logs/denied
+ * Must be registered before /:id so "logs" is not treated as an id.
  */
 router.get('/logs/denied', authMiddleware, requireRole('admin'), async (req, res) => {
     try {
@@ -196,7 +208,7 @@ router.get('/logs/denied', authMiddleware, requireRole('admin'), async (req, res
                 action: r.action,
                 reason: r.reason,
                 user: r.username || 'Unknown',
-                filename: r.filename || 'Unknown file',
+                filename: r.filename || 'Unknown file'
             }))
         );
     } catch (error) {
@@ -214,11 +226,11 @@ router.get('/:id', authMiddleware, async (req, res) => {
         const userId = req.user.id;
 
         const [rows] = await pool.execute(
-            `SELECT f.id, f.filename, f.description, f.file_type, f.owner_id, f.is_public, f.created_at,
-                    f.file_url, f.file_size_kb, f.original_name, f.mime_type,
-                    u.username AS owner_username
+            `SELECT f.id, f.filename, f.description, f.file_url, f.file_size_kb, f.original_name,
+                    f.mime_type, f.file_type, f.owner_id, f.is_public, f.created_at,
+                    f.cloudinary_public_id, u.username AS owner_username
              FROM files f
-             LEFT JOIN users u ON u.id = f.owner_id
+             JOIN users u ON f.owner_id = u.id
              WHERE f.id = ?`,
             [fileId]
         );
@@ -227,16 +239,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
             return res.status(404).json({ error: 'File not found' });
         }
 
-        const file = rows[0];
-
-        const isAllowed = file.owner_id === userId || file.is_public === 1;
+        const row = rows[0];
+        const isAllowed = row.owner_id === userId || row.is_public === 1;
         if (!isAllowed) {
             await logAccess({
                 userId,
                 fileId,
                 action: 'view',
                 result: 'denied',
-                reason: 'not_owner_private',
+                reason: 'not_owner_private'
             });
             return res.status(403).json({ error: 'Access denied: you do not own this file' });
         }
@@ -245,28 +256,39 @@ router.get('/:id', authMiddleware, async (req, res) => {
             userId,
             fileId,
             action: 'view',
-            result: 'allowed',
+            result: 'allowed'
         });
 
-        res.status(200).json(mapFileRow(file, userId));
+        const file = mapFileRow(
+            {
+                ...row,
+                owner_role: null,
+                isOwner: row.owner_id === userId ? 1 : 0
+            },
+            userId
+        );
+        res.status(200).json(file);
     } catch (error) {
         console.error('[Files] Get file error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
+/**
+ * DELETE /api/files/:id
+ */
 router.delete('/:id', authMiddleware, async (req, res) => {
     try {
-        const fileId = req.params.id;
+        const fileId = parseInt(req.params.id, 10);
         const userId = req.user.id;
 
         const [rows] = await pool.execute(
-            'SELECT id, owner_id FROM files WHERE id = ?',
+            'SELECT id, owner_id, cloudinary_public_id, file_url FROM files WHERE id = ?',
             [fileId]
         );
 
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'File not found' });
+            return res.status(404).json({ error: 'File not found.' });
         }
 
         const file = rows[0];
@@ -277,34 +299,46 @@ router.delete('/:id', authMiddleware, async (req, res) => {
                 fileId,
                 action: 'delete',
                 result: 'denied',
-                reason: 'only_owner_can_delete',
+                reason: 'not file owner'
             });
-            return res.status(403).json({ error: 'Access denied: only the file owner can delete' });
+            return res.status(403).json({
+                error: 'Access denied: only the file owner can delete this file.'
+            });
+        }
+
+        const publicId = file.cloudinary_public_id;
+        if (publicId) {
+            try {
+                await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+            } catch (cloudErr) {
+                console.error('[Files] Cloudinary delete error:', cloudErr && cloudErr.message ? cloudErr.message : cloudErr);
+            }
         }
 
         await pool.execute('DELETE FROM files WHERE id = ?', [fileId]);
 
-        res.status(200).json({ message: 'File deleted' });
+        res.status(200).json({ message: 'File deleted successfully.' });
     } catch (error) {
         console.error('[Files] Delete error:', error && error.message ? error.message : error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Failed to delete file.' });
     }
 });
 
+/**
+ * PATCH /api/files/:id/visibility
+ */
 router.patch('/:id/visibility', authMiddleware, async (req, res) => {
     try {
         const fileId = req.params.id;
         const userId = req.user.id;
-        const { is_public } = req.body;
+        let { is_public } = req.body;
 
+        if (is_public === '0' || is_public === '1') is_public = parseInt(is_public, 10);
         if (is_public === undefined || (is_public !== 0 && is_public !== 1)) {
             return res.status(400).json({ error: 'is_public must be 0 or 1' });
         }
 
-        const [rows] = await pool.execute(
-            'SELECT id, owner_id FROM files WHERE id = ?',
-            [fileId]
-        );
+        const [rows] = await pool.execute('SELECT id, owner_id FROM files WHERE id = ?', [fileId]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'File not found' });
@@ -318,19 +352,16 @@ router.patch('/:id/visibility', authMiddleware, async (req, res) => {
                 fileId,
                 action: 'visibility',
                 result: 'denied',
-                reason: 'only_owner_can_change_visibility',
+                reason: 'only_owner_can_change_visibility'
             });
             return res.status(403).json({ error: 'Access denied: only the file owner can change visibility' });
         }
 
-        await pool.execute(
-            'UPDATE files SET is_public = ? WHERE id = ?',
-            [is_public, fileId]
-        );
+        await pool.execute('UPDATE files SET is_public = ? WHERE id = ?', [is_public, fileId]);
 
         res.status(200).json({
             message: 'Visibility updated',
-            is_public: is_public,
+            is_public
         });
     } catch (error) {
         console.error('[Files] Visibility error:', error && error.message ? error.message : error);
