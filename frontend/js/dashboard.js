@@ -601,9 +601,9 @@ function renderFilterTabs(container, role, activeType) {
 function emptyStateMessage(tabKey) {
     if (tabKey === 'all') return 'No documents yet. Add your first file.';
     if (tabKey === 'recipe') return 'No recipes yet. Add your first recipe.';
-    if (tabKey === 'report') return 'No reports found.';
-    if (tabKey === 'schedule') return 'No schedules available.';
-    if (tabKey === 'invoice') return 'No invoices found.';
+    if (tabKey === 'report') return 'No reports yet. Add one.';
+    if (tabKey === 'schedule') return 'No schedules yet. Add one.';
+    if (tabKey === 'invoice') return 'No invoices yet. Add one.';
     return 'No documents.';
 }
 
@@ -701,7 +701,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
 
                 // Owner action buttons as icons
                 const ownerActions = isOwner ? `
-                    <button class="btn-icon toggle-vis-btn" data-file-id="${escapeHtml(String(file.id))}" data-is-public="${isPublic ? '1' : '0'}" title="${isPublic ? 'Make private' : 'Make public'}">
+                    <button class="btn-icon toggle-vis-btn" data-file-id="${escapeHtml(String(file.id))}" data-is-public="${isPublic ? '1' : '0'}" title="${isPublic ? 'Make private' : 'Make public'}" aria-label="${isPublic ? 'Make private' : 'Make public'}">
                         ${isPublic ? iconLockSmall() : iconGlobe()}
                     </button>
                     <button class="btn-icon btn-icon-danger delete-file-btn" data-file-id="${escapeHtml(String(file.id))}" data-filename="${escapeHtml(file.filename || '')}" title="Delete file">
@@ -1090,11 +1090,18 @@ function renderActivityFeed(activity) {
                 ? item.uploaderRole
                 : '';
             const roleMod = rr ? ` activity-item--role-${rr}` : '';
+            const roleBadge = rr ? renderRoleBadge(rr) : '';
+            const typeClass =
+                item.fileType && ['recipe', 'report', 'schedule', 'invoice'].includes(item.fileType)
+                    ? `type-${item.fileType}`
+                    : 'type-file';
             return `
               <div class="activity-item${roleMod}">
+                <span class="activity-type-dot ${typeClass}" aria-hidden="true"></span>
                 <div class="activity-body">
                   <div class="activity-text">
                     ${escapeHtml(item.text || '')}
+                    ${roleBadge ? `<span class="activity-role-badge">${roleBadge}</span>` : ''}
                   </div>
                   <span class="activity-time"
                         title="${new Date(item.time).toLocaleString()}">
@@ -1452,7 +1459,7 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
 
             // Owner action buttons as icons
             const ownerActions = isOwner ? `
-                <button class="btn-icon toggle-vis-btn" data-file-id="${escapeHtml(String(file.id))}" data-is-public="${isPublic ? '1' : '0'}" title="${isPublic ? 'Make private' : 'Make public'}">
+                <button class="btn-icon toggle-vis-btn" data-file-id="${escapeHtml(String(file.id))}" data-is-public="${isPublic ? '1' : '0'}" title="${isPublic ? 'Make private' : 'Make public'}" aria-label="${isPublic ? 'Make private' : 'Make public'}">
                     ${isPublic ? iconLockSmall() : iconGlobe()}
                 </button>
                 <button class="btn-icon btn-icon-danger delete-file-btn" data-file-id="${escapeHtml(String(file.id))}" data-filename="${escapeHtml(file.filename || '')}" title="Delete file">

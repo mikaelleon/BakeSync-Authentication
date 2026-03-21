@@ -14,21 +14,21 @@ function getSidebarNavByRole(role) {
   // The spec wants explicit items + filtering params for files.html.
   const managerItems = [
     { label: 'Dashboard', href: 'dashboard-admin.html' },
-    { label: 'Document Manager', href: 'files.html', primary: true },
-    { label: 'Recipes', href: 'files.html?type=recipe', fileType: 'recipe' },
-    { label: 'Reports', href: 'files.html?type=report', fileType: 'report' },
-    { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule' },
-    { label: 'Invoices', href: 'files.html?type=invoice', fileType: 'invoice' },
-    { label: 'Settings', href: 'profile.html' },
+    { label: 'Document Manager', href: 'files.html', primary: true, navKey: 'doc-manager' },
+    { label: 'Recipes', href: 'files.html?type=recipe', fileType: 'recipe', child: true, parentKey: 'doc-manager' },
+    { label: 'Reports', href: 'files.html?type=report', fileType: 'report', child: true, parentKey: 'doc-manager' },
+    { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule', child: true, parentKey: 'doc-manager' },
+    { label: 'Invoices', href: 'files.html?type=invoice', fileType: 'invoice', child: true, parentKey: 'doc-manager' },
+    { label: 'Settings', href: 'profile.html', iconKey: 'settings' },
     { divider: true },
   ];
 
   const bakerItems = [
     { label: 'Dashboard', href: 'dashboard-staff.html' },
-    { label: 'Document Manager', href: 'files.html', primary: true },
-    { label: 'My Recipes', href: 'files.html?type=recipe', fileType: 'recipe' },
-    { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule' },
-    { label: 'Settings', href: 'profile.html' },
+    { label: 'Document Manager', href: 'files.html', primary: true, navKey: 'doc-manager' },
+    { label: 'My Recipes', href: 'files.html?type=recipe', fileType: 'recipe', child: true, parentKey: 'doc-manager' },
+    { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule', child: true, parentKey: 'doc-manager' },
+    { label: 'Settings', href: 'profile.html', iconKey: 'settings' },
     { divider: true },
     { label: 'Production Log', href: null, visualOnly: true },
     { label: 'Raw Materials', href: null, visualOnly: true }
@@ -36,10 +36,10 @@ function getSidebarNavByRole(role) {
 
   const cashierItems = [
     { label: 'Dashboard', href: 'dashboard-user.html' },
-    { label: 'Document Manager', href: 'files.html', primary: true },
-    { label: 'My Invoices', href: 'files.html?type=invoice', fileType: 'invoice' },
-    { label: 'Reports', href: 'files.html?type=report', fileType: 'report' },
-    { label: 'Settings', href: 'profile.html' },
+    { label: 'Document Manager', href: 'files.html', primary: true, navKey: 'doc-manager' },
+    { label: 'My Invoices', href: 'files.html?type=invoice', fileType: 'invoice', child: true, parentKey: 'doc-manager' },
+    { label: 'Reports', href: 'files.html?type=report', fileType: 'report', child: true, parentKey: 'doc-manager' },
+    { label: 'Settings', href: 'profile.html', iconKey: 'settings' },
     { divider: true },
     { label: 'Point of Sale', href: null, visualOnly: true }
   ];
@@ -251,7 +251,7 @@ function renderSidebarContent() {
               `;
             }
 
-            const iconKey = labelToIconKey(item.label);
+            const iconKey = item.iconKey || labelToIconKey(item.label);
             let filesNavData = '';
             if (item.href && String(item.href).startsWith('files.html')) {
               const [base, query] = String(item.href).split('?');
@@ -262,8 +262,11 @@ function renderSidebarContent() {
               }
               filesNavData = `data-path="${base}" data-type="${t}"`;
             }
+            const parentData = item.parentKey ? `data-parent-key="${item.parentKey}"` : '';
+            const navKeyData = item.navKey ? `data-nav-key="${item.navKey}"` : '';
+            const childClass = item.child ? ' sidebar-link-child' : '';
             return `
-              <a class="sidebar-link" href="${item.href}" ${filesNavData}>
+              <a class="sidebar-link${childClass}" href="${item.href}" ${filesNavData} ${parentData} ${navKeyData}>
                 <span class="sidebar-link-icon" aria-hidden="true">${iconSvg(iconKey)}</span>
                 <span class="sidebar-link-text">${item.label}</span>
               </a>
@@ -283,9 +286,8 @@ function renderSidebarContent() {
           </div>
         </div>
 
-        <button class="sidebar-signout" type="button" id="sidebar-signout-btn">
+        <button class="sidebar-signout-inline" type="button" id="sidebar-signout-btn" title="Sign Out" aria-label="Sign Out">
           <span class="sidebar-signout-icon" aria-hidden="true">${iconSvg('log-out')}</span>
-          <span class="sidebar-signout-text">Sign Out</span>
         </button>
       </div>
     </div>
@@ -367,6 +369,7 @@ function setActiveNavItem() {
 
   // Clear active styles
   sidebar.querySelectorAll('.sidebar-link.active').forEach((el) => el.classList.remove('active'));
+  sidebar.querySelectorAll('.sidebar-link.active-parent').forEach((el) => el.classList.remove('active-parent'));
 
   // File-type nav items (files.html)
   const fileNavItems = sidebar.querySelectorAll('.sidebar-link[data-path]');
@@ -380,7 +383,14 @@ function setActiveNavItem() {
     if (!pathMatches) return;
 
     if (itemType) {
-      if (String(currentType) === String(itemType)) item.classList.add('active');
+      if (String(currentType) === String(itemType)) {
+        item.classList.add('active');
+        const p = item.dataset.parentKey;
+        if (p) {
+          const parentEl = sidebar.querySelector(`.sidebar-link[data-nav-key="${p}"]`);
+          if (parentEl) parentEl.classList.add('active-parent');
+        }
+      }
       return;
     }
 

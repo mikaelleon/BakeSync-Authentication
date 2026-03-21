@@ -659,9 +659,30 @@ input[type="checkbox"] {
 #activity-feed .activity-item {
     display: flex;
     align-items: flex-start;
+    gap: 0.55rem;
     padding: 0.5rem 0 0.5rem 0.65rem;
     margin-left: 0.1rem;
     border-left: 3px solid transparent;
+}
+
+.activity-type-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    margin-top: 0.43rem;
+    flex-shrink: 0;
+    background: var(--muted-foreground);
+}
+
+.activity-type-dot.type-recipe { background: #6EE7B7; }
+.activity-type-dot.type-report { background: #93C5FD; }
+.activity-type-dot.type-schedule { background: #FCD34D; }
+.activity-type-dot.type-invoice { background: #C4B5FD; }
+
+.activity-role-badge {
+    display: inline-flex;
+    margin-left: 0.45rem;
+    vertical-align: middle;
 }
 
 #activity-feed .activity-item--role-admin {
@@ -1268,10 +1289,10 @@ input[type="checkbox"] {
 .sidebar-header {
     padding: 1rem;
     border-bottom: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    position: relative;
 }
 
 .sidebar-logo {
@@ -1319,21 +1340,25 @@ input[type="checkbox"] {
 }
 
 .sidebar-collapse-toggle {
-    width: 2rem;
-    height: 2rem;
+    width: 2.1rem;
+    height: 2.1rem;
     border-radius: var(--radius-md);
-    border: 1px solid transparent;
-    background: transparent;
+    border: 1px solid var(--border);
+    background: var(--card);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: var(--foreground);
+    position: absolute;
+    right: -0.95rem;
+    top: 1rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    z-index: 3;
 }
 
 .sidebar-collapse-toggle:hover {
-    border-color: var(--border);
-    background: rgba(0,0,0,0.02);
+    background: var(--muted);
 }
 
 .sidebar.collapsed .sidebar-logo-wordmark {
@@ -1406,6 +1431,22 @@ input[type="checkbox"] {
     border-left-color: var(--primary);
 }
 
+.sidebar-link.active-parent:not(.active) {
+    background: rgba(161, 104, 50, 0.08);
+    border-color: rgba(161, 104, 50, 0.18);
+    color: var(--foreground);
+    border-left-color: rgba(161, 104, 50, 0.45);
+}
+
+.sidebar-link-child {
+    padding-left: 2rem;
+}
+
+.sidebar-link-child .sidebar-link-icon {
+    width: 1.5rem;
+    opacity: 0.85;
+}
+
 .sidebar-footer {
     border-top: 1px solid var(--border);
     padding: 0.9rem;
@@ -1459,7 +1500,6 @@ input[type="checkbox"] {
 }
 
 .sidebar.collapsed .sidebar-user-card .sidebar-user-meta,
-.sidebar.collapsed .sidebar-signout-text,
 .sidebar.collapsed .sidebar-settings-text {
     opacity: 0;
     width: 0;
@@ -1527,22 +1567,23 @@ input[type="checkbox"] {
     border-radius: 9999px;
 }
 
-.sidebar-signout {
-    width: 100%;
-    justify-content: flex-start;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    padding: 0.5rem 0.75rem;
+.sidebar-signout-inline {
+    margin-left: auto;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid rgba(185, 28, 28, 0.24);
+    background: rgba(185, 28, 28, 0.06);
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: center;
+    transition: background 150ms ease, border-color 150ms ease;
 }
 
-.sidebar-signout:hover {
+.sidebar-signout-inline:hover {
     background: rgba(185, 28, 28, 0.08);
-    border-color: rgba(185, 28, 28, 0.15);
+    border-color: rgba(185, 28, 28, 0.35);
 }
 
 .sidebar-signout-icon {
@@ -1977,6 +2018,10 @@ input[type="checkbox"] {
 
     .sidebar.mobile-open {
         transform: translateX(0);
+    }
+
+    .sidebar-collapse-toggle {
+        display: none;
     }
 }
 
@@ -2661,6 +2706,11 @@ input[type="checkbox"] {
     background: var(--role-admin-bg);
     color: var(--role-admin-text);
     border-color: var(--role-admin-border);
+}
+
+/* Keep role badge contrast consistent in both themes */
+.sidebar-user-role .role-badge {
+    backdrop-filter: saturate(115%);
 }
 
 .role-badge.staff,
