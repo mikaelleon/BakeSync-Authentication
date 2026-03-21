@@ -107,6 +107,22 @@ async function handleLogin(event) {
             localStorage.removeItem(REMEMBER_ME_KEY);
         }
 
+        // MFA gate: backend returns mfaRequired instead of a JWT.
+        if (data.mfaRequired) {
+            sessionStorage.setItem('mfa_userId', String(data.userId));
+            sessionStorage.setItem('mfa_email', data.email || '');
+            sessionStorage.setItem('mfa_username', data.username || '');
+            sessionStorage.setItem('mfa_role', data.role || '');
+            if (data.expiresAt) {
+                sessionStorage.setItem('mfa_expires_at', data.expiresAt);
+            }
+            sessionStorage.setItem('mfa_remember_me', rememberMe ? '1' : '0');
+
+            // Redirect to MFA OTP page to finish sign in.
+            window.location.href = 'mfa.html';
+            return;
+        }
+
         if (typeof persistLoginSession === 'function') {
             persistLoginSession(data, rememberMe);
         } else {
@@ -176,52 +192,43 @@ function checkRegistrationSuccess() {
 async function handleRegister(event) {
     event.preventDefault();
 
-    const username = document.getElementById('username').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const confirm = document.getElementById('confirm-password').value;
-    const role = document.getElementById('role').value;
+    const usernameInput = document.getElementById('username');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm-password');
+    const roleInput = document.getElementById('role');
+
+    const username = usernameInput.value.trim();
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+    const role = roleInput.value;
+
     const errorAlert = document.getElementById('error-alert');
     const submitBtn = document.getElementById('register-btn');
+    const submitLabel = document.getElementById('register-btn-label');
 
     // Hide previous error
     errorAlert.style.display = 'none';
     clearAllFieldErrors();
 
     // Validation
-    let valid = true;
+    const usernameValid = validateUsernameField(usernameInput, true);
+    const emailValid = validateEmailField(emailInput, true);
+    const passwordValid = validatePasswordField(passwordInput, true);
+    const confirmValid = validateConfirmPasswordField(confirmInput, true);
+    const roleValid = validateRoleField(roleInput, true);
 
-    if (!username || username.length < 3) {
-        showFieldError('username-error', 'Username must be at least 3 characters.');
-        valid = false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-        showFieldError('email-error', 'Please enter a valid email address.');
-        valid = false;
-    }
-
-    if (!password || password.length < 6) {
-        showFieldError('password-error', 'Password must be at least 6 characters.');
-        valid = false;
-    }
-
-    if (password !== confirm) {
-        showFieldError('confirm-error', 'Passwords do not match.');
-        valid = false;
-    }
-
-    if (!role) {
-        showFieldError('role-error', 'Please select a role.');
-        valid = false;
-    }
+    const usernameAvailabilityState = await checkUsernameAvailability(username, false);
+    const available = usernameAvailabilityState === 'available' || usernameAvailabilityState === 'unknown';
+    const valid = usernameValid && emailValid && passwordValid && confirmValid && roleValid && available;
 
     if (!valid) return;
 
     // Show loading state
+    submitBtn.classList.add('loading');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating account...';
+    submitLabel.textContent = 'Creating account...';
 
     try {
         const response = await fetch(`${API_BASE}/api/auth/register`, {
@@ -251,7 +258,13 @@ async function handleRegister(event) {
         if (errorMsg) errorMsg.textContent = error.message;
         errorAlert.style.display = 'flex';
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Create Account & Send Code';
+        submitBtn.classList.remove('loading');
+        submitLabel.textContent = 'Create Account & Send Code';
+        if (/username.+taken/i.test(error.message || '')) {
+            setFieldInvalid(usernameInput, 'username-error', 'This username is already taken.');
+        } else if (/email.+registered/i.test(error.message || '')) {
+            setFieldInvalid(emailInput, 'email-error', 'This email is already registered.');
+        }
     }
 }
 
@@ -262,7 +275,7 @@ function showFieldError(elementId, message) {
     const el = document.getElementById(elementId);
     if (el) {
         el.textContent = message;
-        el.style.display = 'block';
+        el.style.display = message ? 'block' : 'none';
     }
 }
 
@@ -277,6 +290,312 @@ function clearAllFieldErrors() {
     });
 }
 
+function setFieldInvalid(inputEl, errorId, message) {
+    if (!inputEl) return;
+    inputEl.classList.remove('input-valid');
+    inputEl.classList.add('input-invalid');
+    showFieldError(errorId, message);
+}
+
+function setFieldValid(inputEl, errorId) {
+    if (!inputEl) return;
+    inputEl.classList.remove('input-invalid');
+    inputEl.classList.add('input-valid');
+    showFieldError(errorId, '');
+}
+
+function clearFieldState(inputEl, errorId) {
+    if (!inputEl) return;
+    inputEl.classList.remove('input-invalid', 'input-valid');
+    showFieldError(errorId, '');
+}
+
+function validateUsernameField(inputEl, showWhenEmpty = false) {
+    const value = String(inputEl?.value || '').trim();
+    if (!value) {
+        if (showWhenEmpty) setFieldInvalid(inputEl, 'username-error', 'Username is required.');
+        else clearFieldState(inputEl, 'username-error');
+        return false;
+    }
+    if (value.length < 3) {
+        setFieldInvalid(inputEl, 'username-error', 'Username must be at least 3 characters.');
+        return false;
+    }
+    if (value.length > 50) {
+        setFieldInvalid(inputEl, 'username-error', 'Username must be 50 characters or less.');
+        return false;
+    }
+    setFieldValid(inputEl, 'username-error');
+    return true;
+}
+
+function validateEmailField(inputEl, showWhenEmpty = false) {
+    const value = String(inputEl?.value || '').trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!value) {
+        if (showWhenEmpty) setFieldInvalid(inputEl, 'email-error', 'Email is required.');
+        else clearFieldState(inputEl, 'email-error');
+        return false;
+    }
+    if (!emailRegex.test(value)) {
+        setFieldInvalid(inputEl, 'email-error', 'Please enter a valid email address.');
+        return false;
+    }
+    setFieldValid(inputEl, 'email-error');
+    return true;
+}
+
+function evaluatePasswordStrength(password) {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    let label = 'Very weak';
+    let color = '#b91c1c';
+    if (score >= 5) {
+        label = 'Strong';
+        color = '#16a34a';
+    } else if (score >= 4) {
+        label = 'Good';
+        color = '#65a30d';
+    } else if (score >= 3) {
+        label = 'Fair';
+        color = '#d97706';
+    } else if (score >= 2) {
+        label = 'Weak';
+        color = '#ea580c';
+    }
+    return { score, label, color };
+}
+
+function renderPasswordStrength(password) {
+    const bar = document.getElementById('password-strength-bar');
+    const text = document.getElementById('password-strength-text');
+    if (!bar || !text) return;
+
+    if (!password) {
+        bar.style.width = '0%';
+        bar.style.backgroundColor = 'var(--muted-foreground)';
+        text.textContent = '';
+        text.classList.remove('hint-valid', 'hint-invalid');
+        return;
+    }
+
+    const result = evaluatePasswordStrength(password);
+    const width = Math.max(12, (result.score / 5) * 100);
+    bar.style.width = `${width}%`;
+    bar.style.backgroundColor = result.color;
+    text.textContent = `Strength: ${result.label}`;
+    text.classList.toggle('hint-valid', result.score >= 4);
+    text.classList.toggle('hint-invalid', result.score < 3);
+}
+
+function validatePasswordField(inputEl, showWhenEmpty = false) {
+    const value = String(inputEl?.value || '');
+    renderPasswordStrength(value);
+
+    if (!value) {
+        if (showWhenEmpty) setFieldInvalid(inputEl, 'password-error', 'Password is required.');
+        else clearFieldState(inputEl, 'password-error');
+        return false;
+    }
+
+    if (value.length < 8) {
+        setFieldInvalid(inputEl, 'password-error', 'Password must be at least 8 characters.');
+        return false;
+    }
+
+    const hasUpper = /[A-Z]/.test(value);
+    const hasLower = /[a-z]/.test(value);
+    const hasDigit = /\d/.test(value);
+    const hasSymbol = /[^A-Za-z0-9]/.test(value);
+    if (!(hasUpper && hasLower && hasDigit && hasSymbol)) {
+        setFieldInvalid(inputEl, 'password-error', 'Include uppercase, lowercase, number, and symbol.');
+        return false;
+    }
+
+    setFieldValid(inputEl, 'password-error');
+    return true;
+}
+
+function validateConfirmPasswordField(inputEl, showWhenEmpty = false) {
+    const password = String(document.getElementById('password')?.value || '');
+    const confirm = String(inputEl?.value || '');
+    const statusEl = document.getElementById('confirm-status');
+    if (statusEl) {
+        statusEl.textContent = '';
+        statusEl.classList.remove('hint-valid', 'hint-invalid');
+    }
+
+    if (!confirm) {
+        if (showWhenEmpty) setFieldInvalid(inputEl, 'confirm-error', 'Please confirm your password.');
+        else clearFieldState(inputEl, 'confirm-error');
+        return false;
+    }
+
+    if (password !== confirm) {
+        setFieldInvalid(inputEl, 'confirm-error', 'Passwords do not match.');
+        if (statusEl) {
+            statusEl.textContent = 'Passwords do not match.';
+            statusEl.classList.add('hint-invalid');
+        }
+        return false;
+    }
+
+    setFieldValid(inputEl, 'confirm-error');
+    if (statusEl) {
+        statusEl.textContent = 'Passwords match.';
+        statusEl.classList.add('hint-valid');
+    }
+    return true;
+}
+
+const ROLE_HINTS = {
+    admin: 'Manager: Full access to manage bakeshop, staff, and reports.',
+    staff: 'Baker: Access to recipes, production schedules, and inventory.',
+    user: 'Cashier: Access to POS, orders, and customer management.'
+};
+
+function validateRoleField(selectEl, showWhenEmpty = false) {
+    const value = String(selectEl?.value || '');
+    const hintEl = document.getElementById('role-hint');
+    if (hintEl) hintEl.textContent = ROLE_HINTS[value] || '';
+    if (!value) {
+        if (showWhenEmpty) setFieldInvalid(selectEl, 'role-error', 'Please select a role.');
+        else clearFieldState(selectEl, 'role-error');
+        return false;
+    }
+    setFieldValid(selectEl, 'role-error');
+    return true;
+}
+
+let usernameCheckTimer = null;
+let lastUsernameChecked = '';
+let usernameAvailability = 'unknown';
+
+async function checkUsernameAvailability(username, debounce = true) {
+    const usernameInput = document.getElementById('username');
+    const statusEl = document.getElementById('username-status');
+    if (!usernameInput || !statusEl) return 'unknown';
+
+    const candidate = String(username || '').trim();
+    if (!validateUsernameField(usernameInput, false)) {
+        usernameAvailability = 'unknown';
+        statusEl.textContent = '';
+        statusEl.classList.remove('hint-valid', 'hint-invalid');
+        return 'unknown';
+    }
+    if (candidate === lastUsernameChecked && usernameAvailability !== 'unknown') {
+        return usernameAvailability;
+    }
+
+    const runCheck = async () => {
+        statusEl.textContent = 'Checking username...';
+        statusEl.classList.remove('hint-valid', 'hint-invalid');
+        try {
+            const response = await fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(candidate)}`);
+            const data = await response.json();
+            lastUsernameChecked = candidate;
+            if (!response.ok || data.available === false) {
+                usernameAvailability = 'taken';
+                statusEl.textContent = data.reason || 'Username is unavailable.';
+                statusEl.classList.add('hint-invalid');
+                setFieldInvalid(usernameInput, 'username-error', data.reason || 'Username is unavailable.');
+                return 'taken';
+            }
+            usernameAvailability = 'available';
+            statusEl.textContent = 'Username is available.';
+            statusEl.classList.add('hint-valid');
+            setFieldValid(usernameInput, 'username-error');
+            return 'available';
+        } catch (e) {
+            usernameAvailability = 'unknown';
+            statusEl.textContent = '';
+            statusEl.classList.remove('hint-valid', 'hint-invalid');
+            return 'unknown';
+        }
+    };
+
+    if (!debounce) return runCheck();
+
+    return new Promise(resolve => {
+        if (usernameCheckTimer) clearTimeout(usernameCheckTimer);
+        usernameCheckTimer = setTimeout(async () => {
+            const res = await runCheck();
+            resolve(res);
+        }, 300);
+    });
+}
+
+async function resendVerificationForEmail(email) {
+    const errorAlert = document.getElementById('error-alert');
+    const errorMsg = document.getElementById('error-message');
+    if (errorAlert) errorAlert.style.display = 'none';
+    try {
+        const response = await fetch(`${API_BASE}/api/auth/resend-verification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to resend verification code.');
+        }
+
+        sessionStorage.setItem('reg_userId', data.userId);
+        sessionStorage.setItem('reg_username', data.username);
+        sessionStorage.setItem('reg_email', email);
+        if (data.expiresAt) sessionStorage.setItem('reg_expires_at', data.expiresAt);
+        window.location.href = 'otp.html';
+    } catch (err) {
+        if (errorMsg) errorMsg.textContent = err.message || 'Failed to resend verification code.';
+        if (errorAlert) errorAlert.style.display = 'flex';
+    }
+}
+
+function initRegisterFormEnhancements() {
+    const registerForm = document.getElementById('register-form');
+    if (!registerForm) return;
+
+    const usernameInput = document.getElementById('username');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm-password');
+    const roleInput = document.getElementById('role');
+    const resendLink = document.getElementById('resend-verification-link');
+
+    usernameInput?.addEventListener('blur', async () => {
+        validateUsernameField(usernameInput, true);
+        await checkUsernameAvailability(usernameInput.value, false);
+    });
+    usernameInput?.addEventListener('input', async () => {
+        validateUsernameField(usernameInput, false);
+        await checkUsernameAvailability(usernameInput.value, true);
+    });
+
+    emailInput?.addEventListener('blur', () => validateEmailField(emailInput, true));
+    emailInput?.addEventListener('input', () => validateEmailField(emailInput, false));
+    passwordInput?.addEventListener('input', () => {
+        validatePasswordField(passwordInput, false);
+        validateConfirmPasswordField(confirmInput, false);
+    });
+    passwordInput?.addEventListener('blur', () => validatePasswordField(passwordInput, true));
+    confirmInput?.addEventListener('input', () => validateConfirmPasswordField(confirmInput, false));
+    confirmInput?.addEventListener('blur', () => validateConfirmPasswordField(confirmInput, true));
+    roleInput?.addEventListener('change', () => validateRoleField(roleInput, true));
+    roleInput?.addEventListener('blur', () => validateRoleField(roleInput, true));
+
+    resendLink?.addEventListener('click', async e => {
+        e.preventDefault();
+        const email = String(emailInput?.value || '').trim();
+        if (!validateEmailField(emailInput, true)) return;
+        await resendVerificationForEmail(email);
+    });
+}
+
 /**
  * Initialize OTP page
  */
@@ -284,9 +603,16 @@ function clearAllFieldErrors() {
     // Only run on OTP page
     if (!document.getElementById('otp-form')) return;
 
-    const userId = sessionStorage.getItem('reg_userId');
-    const username = sessionStorage.getItem('reg_username');
-    const email = sessionStorage.getItem('reg_email');
+    const mfaUserId = sessionStorage.getItem('mfa_userId');
+    const isMfa = !!mfaUserId;
+
+    const expiryKey = isMfa ? 'mfa_expires_at' : 'reg_expires_at';
+    const verifyEndpoint = isMfa ? '/api/auth/verify-mfa-otp' : '/api/auth/verify-otp';
+    const resendEndpoint = isMfa ? '/api/auth/resend-mfa-otp' : '/api/auth/resend-otp';
+
+    const userId = isMfa ? mfaUserId : sessionStorage.getItem('reg_userId');
+    const username = isMfa ? sessionStorage.getItem('mfa_username') : sessionStorage.getItem('reg_username');
+    const email = isMfa ? sessionStorage.getItem('mfa_email') : sessionStorage.getItem('reg_email');
 
     if (!userId) {
         window.location.href = 'login.html';
@@ -312,7 +638,7 @@ function clearAllFieldErrors() {
     let resendCooldownUntilMs = Date.now() + 60000; // mirrors backend: ~1 minute between resends
 
     let seconds = 600; // fallback if reg_expires_at isn't present
-    const regExpiresAt = sessionStorage.getItem('reg_expires_at');
+    const regExpiresAt = sessionStorage.getItem(expiryKey);
     let regExpiresAtMs = regExpiresAt ? new Date(regExpiresAt).getTime() : null;
     if (regExpiresAt) {
         const msLeft = regExpiresAtMs - Date.now();
@@ -363,7 +689,7 @@ function clearAllFieldErrors() {
         // Backend lockout clears otp_code/otp_expires_at, so reflect as expired in UI.
         seconds = 0;
         // Prevent countdown from "reverting" to the old expiry after lockout starts.
-        sessionStorage.removeItem('reg_expires_at');
+        sessionStorage.removeItem(expiryKey);
         regExpiresAtMs = null;
         updateTimerDisplay();
         updateVerifyEnabled();
@@ -436,7 +762,7 @@ function clearAllFieldErrors() {
         successAlert.style.display = 'none';
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+            const response = await fetch(`${API_BASE}${verifyEndpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: parseInt(userId), otp })
@@ -469,11 +795,19 @@ function clearAllFieldErrors() {
                 return;
             }
 
-            // Clear registration session
-            sessionStorage.removeItem('reg_userId');
-            sessionStorage.removeItem('reg_username');
-            sessionStorage.removeItem('reg_email');
-            sessionStorage.removeItem('reg_expires_at');
+            // Clear OTP session state
+            if (isMfa) {
+                sessionStorage.removeItem('mfa_userId');
+                sessionStorage.removeItem('mfa_username');
+                sessionStorage.removeItem('mfa_email');
+                sessionStorage.removeItem('mfa_role');
+                sessionStorage.removeItem('mfa_expires_at');
+            } else {
+                sessionStorage.removeItem('reg_userId');
+                sessionStorage.removeItem('reg_username');
+                sessionStorage.removeItem('reg_email');
+                sessionStorage.removeItem('reg_expires_at');
+            }
 
             // Show success state
             clearInterval(countdownInterval);
@@ -483,6 +817,29 @@ function clearAllFieldErrors() {
 
             // Redirect after 2 seconds
             setTimeout(() => {
+                if (isMfa) {
+                    const rememberMe = sessionStorage.getItem('mfa_remember_me') === '1';
+                    sessionStorage.removeItem('mfa_remember_me');
+
+                    if (data && data.token) {
+                        if (typeof persistLoginSession === 'function') {
+                            persistLoginSession(data, rememberMe);
+                        } else {
+                            sessionStorage.setItem('token', data.token);
+                            sessionStorage.setItem('role', data.role);
+                            sessionStorage.setItem('username', data.username);
+                        }
+                    }
+
+                    const redirectMap = {
+                        'admin': 'dashboard-admin.html',
+                        'staff': 'dashboard-staff.html',
+                        'user': 'dashboard-user.html'
+                    };
+                    window.location.href = redirectMap[data.role] || 'dashboard-user.html';
+                    return;
+                }
+
                 window.location.href = 'login.html?registered=true';
             }, 2000);
         } catch (error) {
@@ -506,7 +863,7 @@ function clearAllFieldErrors() {
             successAlert.style.display = 'none';
 
             try {
-                const response = await fetch(`${API_BASE}/api/auth/resend-otp`, {
+                const response = await fetch(`${API_BASE}${resendEndpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: parseInt(userId) })
@@ -538,7 +895,7 @@ function clearAllFieldErrors() {
 
                 // Reset server-synced timer + resend cooldown.
                 if (data.expiresAt) {
-                    sessionStorage.setItem('reg_expires_at', data.expiresAt);
+                    sessionStorage.setItem(expiryKey, data.expiresAt);
                     regExpiresAtMs = new Date(data.expiresAt).getTime();
                     const msLeft = regExpiresAtMs - Date.now();
                     seconds = Math.max(0, Math.ceil(msLeft / 1000));

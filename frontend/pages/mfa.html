@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Factor Authentication — BakeSync</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="alternate icon" href="../favicon.svg" />
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .otp-timer {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-align: center;
+            margin: 1rem 0;
+        }
+        .otp-timer.expired {
+            color: var(--destructive);
+        }
+        .otp-success-state {
+            text-align: center;
+            padding: 2rem;
+        }
+        .otp-success-state svg {
+            width: 64px;
+            height: 64px;
+            color: var(--success);
+            margin-bottom: 1rem;
+        }
+        .otp-success-state h3 {
+            color: var(--success);
+            margin-bottom: 0.5rem;
+        }
+        .resend-btn {
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">
+                    <!-- Shield Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="card-title">Two-factor sign in</h1>
+                    <p class="card-description">
+                        We sent a 6-digit code to your email address.
+                        Enter it below to continue.
+                    </p>
+                </div>
+            </div>
+
+            <div class="card-content">
+                <div id="otp-form-container">
+                    <div id="success-alert" class="alert alert-success" style="display: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <span id="success-message"></span>
+                    </div>
+
+                    <div id="error-alert" class="alert alert-destructive" style="display: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                            <path d="M12 9v4"/>
+                            <path d="M12 17h.01"/>
+                        </svg>
+                        <span id="error-message"></span>
+                    </div>
+
+                    <form id="otp-form">
+                        <div class="space-y-4">
+                            <p class="text-sm text-muted" style="text-align: center;">
+                                <span id="otp-email-display"></span>
+                            </p>
+
+                            <div class="otp-timer" id="otp-timer">10:00</div>
+                            <p id="otp-attempts-remaining" class="otp-attempts-text" style="text-align:center; margin-top: -0.5rem; color: var(--muted-foreground); font-size: 0.875rem;"></p>
+
+                            <div class="form-group">
+                                <label for="otp-input">Authentication Code</label>
+                                <input
+                                    type="text"
+                                    id="otp-input"
+                                    name="otp"
+                                    class="otp-input"
+                                    placeholder="000000"
+                                    maxlength="6"
+                                    pattern="[0-9]{6}"
+                                    required
+                                    autocomplete="one-time-code"
+                                >
+                            </div>
+
+                            <button type="submit" id="otp-verify-btn" class="btn btn-primary btn-full">
+                                Verify Code
+                            </button>
+
+                            <button type="button" id="otp-resend-btn" class="btn btn-outline btn-full resend-btn" disabled>
+                                Resend Code
+                            </button>
+
+                            <div class="text-center">
+                                <a href="login.html" class="link text-sm">Back to Login</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="otp-success-container" class="otp-success-state" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <h3>Two-factor complete!</h3>
+                    <p class="text-muted">You may now access your dashboard.</p>
+                    <p class="text-sm text-muted" style="margin-top: 1rem;">Redirecting...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+</body>
+</html>
+

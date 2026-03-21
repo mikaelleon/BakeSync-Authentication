@@ -50,6 +50,7 @@
                                 required
                                 autocomplete="username"
                             >
+                            <span id="username-status" class="field-hint"></span>
                             <span id="username-error" class="field-error"></span>
                         </div>
 
@@ -63,7 +64,6 @@
                                 required
                                 autocomplete="email"
                             >
-                            <p class="field-hint">A verification code will be sent to this address.</p>
                             <span id="email-error" class="field-error"></span>
                         </div>
 
@@ -89,6 +89,11 @@
                                     </svg>
                                 </button>
                             </div>
+                            <p class="field-hint">Use at least 8 characters with uppercase, lowercase, number, and symbol.</p>
+                            <div class="password-strength" id="password-strength">
+                                <div class="password-strength-bar" id="password-strength-bar"></div>
+                            </div>
+                            <span id="password-strength-text" class="field-hint"></span>
                             <span id="password-error" class="field-error"></span>
                         </div>
 
@@ -114,6 +119,7 @@
                                     </svg>
                                 </button>
                             </div>
+                            <span id="confirm-status" class="field-hint"></span>
                             <span id="confirm-error" class="field-error"></span>
                         </div>
 
@@ -130,7 +136,8 @@
                         </div>
 
                         <button type="submit" id="register-btn" class="btn btn-primary btn-full">
-                            Create Account & Send Code
+                            <span class="btn-spinner" id="register-spinner" aria-hidden="true"></span>
+                            <span id="register-btn-label">Create Account & Send Code</span>
                         </button>
 
                         <div class="text-center text-sm">
@@ -143,7 +150,7 @@
                 <div class="demo-box" style="margin-top: 1.5rem;">
                     <p class="demo-box-content" style="text-align: center;">
                         Already registered but haven't verified yet?
-                        <a href="login.html" class="link">Sign in</a> to receive a new verification code.
+                        <a href="#" id="resend-verification-link" class="link">Resend verification code</a>.
                     </p>
                 </div>
             </div>
@@ -154,21 +161,12 @@
     <script src="../js/api.js"></script>
     <script src="../js/auth.js"></script>
     <script>
-        // Role hint updater
-        document.getElementById('role').addEventListener('change', function() {
-            const hints = {
-                'admin': 'Full access to manage bakeshop, staff, and reports.',
-                'staff': 'Access to recipes, production schedules, and inventory.',
-                'user': 'Access to POS, orders, and customer management.'
-            };
-            document.getElementById('role-hint').textContent = hints[this.value] || '';
-        });
-
         // Register form handler
         document.getElementById('register-form').addEventListener('submit', handleRegister);
 
-        // Initialize password toggles
+        // Initialize form behavior
         initPasswordToggles();
+        initRegisterFormEnhancements();
     </script>
 </body>
 </html>

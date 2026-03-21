@@ -21,7 +21,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         const [rows] = await pool.execute(
-            'SELECT id, username, email, role, is_verified, created_at FROM users WHERE id = ?',
+            'SELECT id, username, email, role, is_verified, mfa_enabled, created_at FROM users WHERE id = ?',
             [userId]
         );
 
@@ -44,15 +44,19 @@ router.get('/me', authMiddleware, async (req, res) => {
 router.patch('/me', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { username, email } = req.body || {};
+        const { username, email, mfa_enabled } = req.body || {};
 
-        if ((username === undefined || username === null) && (email === undefined || email === null)) {
+        if (
+            (username === undefined || username === null) &&
+            (email === undefined || email === null) &&
+            (mfa_enabled === undefined || mfa_enabled === null)
+        ) {
             return res.status(400).json({ error: 'Nothing to update' });
         }
 
         // Fetch current user
         const [currentRows] = await pool.execute(
-            'SELECT id, username, email, role FROM users WHERE id = ?',
+            'SELECT id, username, email, role, mfa_enabled FROM users WHERE id = ?',
             [userId]
         );
         if (currentRows.length === 0) {
@@ -65,6 +69,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
 
         let nextUsername = current.username;
         let nextEmail = current.email;
+        let nextMfaEnabled = current.mfa_enabled;
 
         if (username !== undefined && username !== null) {
             const trimmed = String(username).trim();
@@ -105,17 +110,46 @@ router.patch('/me', authMiddleware, async (req, res) => {
             }
         }
 
+        if (mfa_enabled !== undefined && mfa_enabled !== null) {
+            const raw = mfa_enabled;
+            const nextVal =
+                raw === true || raw === 1 || raw === '1' || raw === 'true' ? 1 : 0;
+
+            // Reject other truthy/falsy values that could be ambiguous.
+            if (!(raw === true || raw === false || raw === 0 || raw === 1 || raw === '0' || raw === '1' || raw === 'true' || raw === 'false')) {
+                return res.status(400).json({ error: 'Invalid mfa_enabled value' });
+            }
+
+            if (nextVal !== Number(current.mfa_enabled || 0)) {
+                updates.push('mfa_enabled = ?');
+                params.push(nextVal);
+                nextMfaEnabled = nextVal;
+            }
+        }
+
         if (updates.length === 0) {
             return res.status(200).json({
                 message: 'No changes',
-                user: { id: current.id, username: current.username, email: current.email, role: current.role }
+                user: {
+                    id: current.id,
+                    username: current.username,
+                    email: current.email,
+                    role: current.role,
+                    mfa_enabled: current.mfa_enabled
+                }
             });
         }
 
         params.push(userId);
         await pool.execute(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
 
-        const user = { id: current.id, username: nextUsername, email: nextEmail, role: current.role };
+        const user = {
+            id: current.id,
+            username: nextUsername,
+            email: nextEmail,
+            role: current.role,
+            mfa_enabled: nextMfaEnabled
+        };
 
         // Refresh JWT if username changed (token includes username)
         let token = null;

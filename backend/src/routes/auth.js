@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../config/db');
 const { generateOTP, getOTPExpiry } = require('../utils/otp');
-const { sendOTPEmail, sendPasswordResetOTPEmail } = require('../utils/mailer');
+const { sendOTPEmail, sendPasswordResetOTPEmail, sendMFAOTPEmail } = require('../utils/mailer');
 
 const router = express.Router();
 const MAX_OTP_ATTEMPTS = 5;
@@ -43,6 +43,17 @@ router.post('/register', async (req, res) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        // Match client-side requirements for clearer UX consistency.
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasDigit = /\d/.test(password);
+        const hasSymbol = /[^A-Za-z0-9]/.test(password);
+        if (password.length < 8 || !(hasUpper && hasLower && hasDigit && hasSymbol)) {
+            return res.status(400).json({
+                error: 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.'
+            });
         }
 
         // Check username/email existence (and whether already verified)
@@ -169,6 +180,100 @@ router.post('/register', async (req, res) => {
         });
     } catch (error) {
         console.error('[Auth] Register error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * GET /api/auth/check-username?username=...
+ * Lightweight availability check for inline signup validation.
+ */
+router.get('/check-username', async (req, res) => {
+    try {
+        const username = String(req.query.username || '').trim();
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+
+        if (username.length < 3 || username.length > 50) {
+            return res.status(200).json({
+                available: false,
+                reason: 'Username must be between 3 and 50 characters.'
+            });
+        }
+
+        const [rows] = await pool.execute(
+            'SELECT id FROM users WHERE username = ? LIMIT 1',
+            [username]
+        );
+
+        if (rows.length > 0) {
+            return res.status(200).json({
+                available: false,
+                reason: 'Username is already taken.'
+            });
+        }
+
+        return res.status(200).json({ available: true });
+    } catch (error) {
+        console.error('[Auth] Username check error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/resend-verification
+ * Directly resend account verification OTP by email for unverified users.
+ */
+router.post('/resend-verification', async (req, res) => {
+    try {
+        const normalizedEmail = normalizeEmailInput(req.body && req.body.email);
+
+        if (!normalizedEmail) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(normalizedEmail)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        const [rows] = await pool.execute(
+            'SELECT id, username, email, is_verified FROM users WHERE LOWER(TRIM(email)) = ?',
+            [normalizedEmail]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'No account found with this email.' });
+        }
+
+        const user = rows[0];
+        if (Number(user.is_verified) === 1) {
+            return res.status(409).json({
+                error: 'This account is already verified. You can sign in now.'
+            });
+        }
+
+        const otpCode = generateOTP();
+        const otpExpiry = getOTPExpiry();
+        const expiresAt = otpExpiry.toISOString();
+
+        await pool.execute(
+            'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+            [otpCode, otpExpiry, user.id]
+        );
+
+        await sendOTPEmail(user.email, user.username, otpCode);
+
+        res.status(200).json({
+            message: 'Verification code resent to your email.',
+            userId: user.id,
+            username: user.username,
+            expiresAt
+        });
+    } catch (error) {
+        console.error('[Auth] Resend verification error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -387,7 +492,7 @@ router.post('/login', async (req, res) => {
         }
 
         const [rows] = await pool.execute(
-            'SELECT id, username, email, password_hash, role, is_verified FROM users WHERE username = ?',
+            'SELECT id, username, email, password_hash, role, is_verified, mfa_enabled FROM users WHERE username = ?',
             [username]
         );
 
@@ -412,6 +517,45 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        // ── MFA gate (optional, enabled per-user) ────────────────────
+        if (user.mfa_enabled === 1) {
+            const otpCode = generateOTP();
+            const otpExpiry = getOTPExpiry();
+            const expiresAt = otpExpiry.toISOString();
+
+            await pool.execute(
+                'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+                [otpCode, otpExpiry, user.id]
+            );
+
+            // For demo/testing: always log OTP to console.
+            // Production should remove this to avoid leaking OTPs.
+            console.log(`[MFA] OTP for ${user.email}: ${otpCode}`);
+
+            // Optional simulation mode: if MFA_SIMULATE_OTP=1, skip sending email.
+            if (process.env.MFA_SIMULATE_OTP === '1') {
+                return res.status(200).json({
+                    mfaRequired: true,
+                    userId: user.id,
+                    role: user.role,
+                    username: user.username,
+                    email: user.email,
+                    expiresAt
+                });
+            }
+
+            await sendMFAOTPEmail(user.email, user.username, otpCode);
+
+            return res.status(200).json({
+                mfaRequired: true,
+                userId: user.id,
+                role: user.role,
+                username: user.username,
+                email: user.email,
+                expiresAt
+            });
+        }
+
         // ── JWT signing ──────────────────────────────────────────────
         // Payload contains minimal claims (id, username, role).
         // Avoid storing sensitive data in JWT — it is base64 encoded,
@@ -430,6 +574,166 @@ router.post('/login', async (req, res) => {
         });
     } catch (error) {
         console.error('[Auth] Login error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/verify-mfa-otp
+ * Verify MFA OTP and issue JWT
+ */
+router.post('/verify-mfa-otp', async (req, res) => {
+    try {
+        const { userId, otp } = req.body;
+
+        if (!userId || !otp) {
+            return res.status(400).json({ error: 'User ID and OTP are required' });
+        }
+
+        const [rows] = await pool.execute(
+            'SELECT id, username, email, role, otp_code, otp_expires_at, otp_attempts, otp_locked_until, is_verified, mfa_enabled FROM users WHERE id = ?',
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = rows[0];
+
+        if (user.is_verified !== 1 || user.mfa_enabled !== 1) {
+            return res.status(401).json({ error: 'Invalid or expired code' });
+        }
+
+        const now = new Date();
+
+        // Lockout check
+        if (user.otp_locked_until) {
+            const lockedUntil = new Date(user.otp_locked_until);
+            if (now < lockedUntil) {
+                return res.status(429).json({
+                    error: 'Too many invalid OTP attempts. You are temporarily locked out.',
+                    lockedUntil: lockedUntil.toISOString(),
+                    attemptsRemaining: 0
+                });
+            }
+        }
+
+        // Check OTP expiry
+        if (!user.otp_expires_at) {
+            return res.status(401).json({ error: 'OTP has expired. Please request a new code.' });
+        }
+
+        const otpExpiry = new Date(user.otp_expires_at);
+        if (now > otpExpiry) {
+            return res.status(401).json({ error: 'OTP has expired. Please request a new code.' });
+        }
+
+        // OTP mismatch => increment attempt counter + possibly lock
+        if (user.otp_code !== String(otp)) {
+            const prevAttempts = Number(user.otp_attempts || 0);
+            const nextAttempts = prevAttempts + 1;
+
+            if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+                const lockedUntil = new Date(now);
+                lockedUntil.setMinutes(lockedUntil.getMinutes() + OTP_LOCK_MINUTES);
+
+                await pool.execute(
+                    'UPDATE users SET otp_attempts = ?, otp_locked_until = ?, otp_code = NULL, otp_expires_at = NULL WHERE id = ?',
+                    [MAX_OTP_ATTEMPTS, lockedUntil, userId]
+                );
+
+                return res.status(429).json({
+                    error: 'Too many invalid OTP attempts. You are temporarily locked out.',
+                    lockedUntil: lockedUntil.toISOString(),
+                    attemptsRemaining: 0
+                });
+            }
+
+            await pool.execute(
+                'UPDATE users SET otp_attempts = ? WHERE id = ?',
+                [nextAttempts, userId]
+            );
+
+            return res.status(401).json({
+                error: 'Invalid OTP code.',
+                attemptsRemaining: MAX_OTP_ATTEMPTS - nextAttempts
+            });
+        }
+
+        // OTP verified: clear OTP and issue JWT
+        await pool.execute(
+            'UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+            [userId]
+        );
+
+        const token = jwt.sign(
+            { id: user.id, username: user.username, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '2h' }
+        );
+
+        res.status(200).json({
+            token,
+            role: user.role,
+            username: user.username
+        });
+    } catch (error) {
+        console.error('[Auth] Verify MFA OTP error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/resend-mfa-otp
+ * Resend MFA OTP email
+ */
+router.post('/resend-mfa-otp', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        const [rows] = await pool.execute(
+            'SELECT id, username, email, is_verified, mfa_enabled FROM users WHERE id = ?',
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = rows[0];
+
+        if (user.is_verified !== 1 || user.mfa_enabled !== 1) {
+            return res.status(401).json({ error: 'Invalid or expired code' });
+        }
+
+        const otpCode = generateOTP();
+        const otpExpiry = getOTPExpiry();
+        const expiresAt = otpExpiry.toISOString();
+
+        await pool.execute(
+            'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+            [otpCode, otpExpiry, userId]
+        );
+
+        console.log(`[MFA] OTP for ${user.email}: ${otpCode}`);
+
+        if (process.env.MFA_SIMULATE_OTP !== '1') {
+            await sendMFAOTPEmail(user.email, user.username, otpCode);
+        }
+
+        res.status(200).json({
+            message: 'MFA code resent.',
+            userId: user.id,
+            username: user.username,
+            expiresAt
+        });
+    } catch (error) {
+        console.error('[Auth] Resend MFA OTP error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

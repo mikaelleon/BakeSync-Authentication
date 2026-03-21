@@ -632,4 +632,149 @@ async function sendPasswordResetOTPEmail(toEmail, username, otpCode) {
     }
 }
 
-module.exports = { sendOTPEmail, sendAccountDeletionOTPEmail, sendPasswordResetOTPEmail };
+async function sendMFAOTPEmail(toEmail, username, otpCode) {
+    try {
+        const { data, error } = await resend.emails.send({
+            from: 'BakeSync <onboarding@resend.dev>',
+            to: toEmail,
+            subject: 'Your BakeSync 2FA Code',
+            html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BakeSync 2FA</title>
+</head>
+<body style="
+  margin: 0;
+  padding: 0;
+  background-color: #f3f0eb;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding: 48px 16px;">
+    <tr>
+      <td align="center">
+        <table width="520" cellpadding="0" cellspacing="0" style="
+          background: #ffffff;
+          border-radius: 16px;
+          border: 1px solid #e7e5e0;
+          overflow: hidden;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        ">
+          <tr>
+            <td style="padding: 36px 40px 24px 40px; text-align: center;">
+              <div style="
+                display: inline-block;
+                background: rgba(161, 104, 50, 0.1);
+                border-radius: 50%;
+                width: 64px;
+                height: 64px;
+                line-height: 64px;
+                text-align: center;
+                font-size: 28px;
+                margin-bottom: 16px;
+              ">🔐</div>
+              <h1 style="
+                margin: 0 0 4px 0;
+                font-size: 22px;
+                font-weight: 700;
+                color: #3d3529;
+                letter-spacing: -0.3px;
+              ">Two-factor authentication</h1>
+              <p style="
+                margin: 0;
+                font-size: 14px;
+                color: #78716c;
+                line-height: 1.6;
+              ">
+                Hello, <span style="color: #a16832;">${username}</span>.<br/>
+                Use this code to complete sign in. It expires in 10 minutes.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px 36px 40px;">
+              <div style="
+                background: #f3f0eb;
+                border: 1px solid #e7e5e0;
+                border-radius: 12px;
+                padding: 28px 24px;
+                text-align: center;
+              ">
+                <p style="
+                  margin: 0 0 12px 0;
+                  font-size: 11px;
+                  font-weight: 600;
+                  color: #78716c;
+                  letter-spacing: 2px;
+                  text-transform: uppercase;
+                ">Your 2FA Code</p>
+                <div style="margin-bottom: 16px;">
+                  ${otpCode
+                      .split('')
+                      .map(
+                          digit => `
+                    <span style="
+                      display: inline-block;
+                      width: 44px;
+                      height: 54px;
+                      line-height: 54px;
+                      margin: 0 3px;
+                      background: #ffffff;
+                      border: 2px solid #a16832;
+                      border-radius: 10px;
+                      font-size: 28px;
+                      font-weight: 700;
+                      color: #a16832;
+                      text-align: center;
+                    ">${digit}</span>
+                  `
+                      )
+                      .join('')}
+                </div>
+                <div style="
+                  display: inline-block;
+                  background: rgba(217, 119, 6, 0.1);
+                  border: 1px solid #d97706;
+                  border-radius: 20px;
+                  padding: 6px 14px;
+                ">
+                  <span style="
+                    font-size: 12px;
+                    color: #d97706;
+                    font-weight: 500;
+                  ">Expires in 10 minutes</span>
+                </div>
+              </div>
+              <p style="
+                margin: 24px 0 0 0;
+                font-size: 12px;
+                color: #78716c;
+                text-align: center;
+                line-height: 1.6;
+              ">
+                BakeSync · Bakery Management System<br/>
+                Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`,
+        });
+
+        if (error) throw new Error(error.message);
+
+        console.log(`[Mailer] MFA OTP sent to ${toEmail} for ${username}`);
+    } catch (err) {
+        console.error('[Mailer] Failed to send email:', err && err.message ? err.message : err);
+        throw err;
+    }
+}
+
+module.exports = { sendOTPEmail, sendAccountDeletionOTPEmail, sendPasswordResetOTPEmail, sendMFAOTPEmail };
