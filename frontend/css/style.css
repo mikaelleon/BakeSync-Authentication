@@ -1956,16 +1956,47 @@ input[type="checkbox"] {
     margin-top: 0.75rem;
 }
 
+/* ── File list container (unified card) ─────────────── */
+.files-list {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+
+/* ── Individual file row ─────────────────────────────── */
 .file-card {
     position: relative;
     display: flex;
-    gap: 1rem;
-    align-items: flex-start;
-    padding: 0.75rem 0.85rem;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    transition: background 150ms ease;
+    /* Remove individual card styles */
+    box-shadow: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.file-card:last-child {
+    border-bottom: none;
+}
+
+.file-card:hover {
+    background: var(--muted);
+}
+
+/* Legacy file-card styling for widget (keeps margin) */
+.widget-file-list > .file-card {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    background: var(--card);
     margin-bottom: 0.75rem;
+}
+
+.widget-file-list > .file-card:last-child {
+    margin-bottom: 0;
 }
 
 @keyframes cardFlash {
@@ -1984,32 +2015,31 @@ input[type="checkbox"] {
     animation: cardFlash 600ms ease;
 }
 
-.file-card-locked {
+/* REMOVED: full overlay lock - now using small badge on icon */
+.file-card-locked,
+.file-card-locked-muted {
+    display: none !important;
+}
+
+/* ── Small lock badge (bottom-right of file type icon) ── */
+.file-type-lock-dot {
     position: absolute;
-    inset: 0;
-    background: rgba(185, 28, 28, 0.06);
-    border-radius: var(--radius-lg);
+    bottom: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--destructive);
-    font-weight: 600;
-    pointer-events: none;
 }
 
-.file-card-locked-muted {
-    position: absolute;
-    bottom: 0.75rem;
-    right: 0.75rem;
-    inset: auto;
-    background: rgba(0,0,0,0.02);
-    border-radius: 9999px;
-    padding: 0.25rem 0.5rem;
-    color: var(--muted-foreground);
-    border: 1px solid var(--border);
-    pointer-events: none;
-    font-size: 0.75rem;
-    font-weight: 500;
+.file-type-lock-dot svg {
+    width: 9px;
+    height: 9px;
 }
 
 .file-card-icon {
@@ -2118,6 +2148,28 @@ input[type="checkbox"] {
     border-color: rgba(185, 28, 28, 0.25);
 }
 
+/* ── Visibility badges (alias for meta row) ──────────── */
+.vis-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    text-transform: capitalize;
+}
+
+.vis-public {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.vis-private {
+    background: rgba(239, 68, 68, 0.08);
+    color: #DC2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 .collapse-chevron {
     width: 20px;
     height: 20px;
@@ -2138,10 +2190,47 @@ input[type="checkbox"] {
 
 .file-card-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 6px;
     align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* ── Icon action buttons ─────────────────────────────── */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.btn-icon:hover {
+    background: var(--muted);
+    color: var(--foreground);
+}
+
+.btn-icon-danger {
+    color: var(--destructive);
+}
+
+.btn-icon-danger:hover {
+    background: rgba(185, 28, 28, 0.1);
+    border-color: rgba(185, 28, 28, 0.3);
+    color: var(--destructive);
+}
+
+.btn-icon svg {
+    width: 15px;
+    height: 15px;
 }
 
 .widget-empty {
@@ -2210,6 +2299,13 @@ input[type="checkbox"] {
 
 .btn-danger {
     color: var(--destructive);
+}
+
+/* ── Inline delete confirmation ─────────────────────── */
+.delete-confirm-text {
+    font-size: 12px;
+    color: var(--destructive);
+    font-weight: 500;
 }
 
 /* ── Page transition ─────────────────────────────────── */
@@ -2364,11 +2460,12 @@ input[type="checkbox"] {
 
 /* ── File type icon colors (Lucide wrappers) ─────────── */
 .file-type-icon-wrap {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 8px;
     flex-shrink: 0;
 }

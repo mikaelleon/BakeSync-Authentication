@@ -327,7 +327,19 @@ function icon(name, className = '') {
     return svg.replace('<svg ', `<svg class="${className}" `);
 }
 
-function getFileTypeIconEl(type) {
+function iconGlobe() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+}
+
+function iconLockSmall() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+}
+
+function iconTrashSmall() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+}
+
+function getFileTypeIconEl(type, isPrivate) {
     const iconName = {
         recipe: 'book-open',
         report: 'bar-chart',
@@ -335,7 +347,8 @@ function getFileTypeIconEl(type) {
         invoice: 'receipt',
     }[type] || 'file-text';
     const t = type || 'recipe';
-    return `<span class="file-type-icon-wrap type-${escapeHtml(t)}">${icon(iconName)}</span>`;
+    const lockOverlay = isPrivate ? `<span class="file-type-lock-dot" title="Private file">${iconLockSmall()}</span>` : '';
+    return `<span class="file-type-icon-wrap type-${escapeHtml(t)}">${icon(iconName)}${lockOverlay}</span>`;
 }
 
 function updateFilesPageTitle(type) {
@@ -444,14 +457,15 @@ function fileTypeToColorClass(type) {
     return 'recipe';
 }
 
-function fileTypeIcon(type) {
-    return getFileTypeIconEl(type);
+function fileTypeIcon(type, isPrivate) {
+    return getFileTypeIconEl(type, isPrivate);
 }
 
 /** Document Manager widget: one Lucide-style file icon + type color from wrapper (no per-type glyph). */
-function widgetFileTypeIcon(type) {
+function widgetFileTypeIcon(type, isPrivate) {
     const t = type || 'recipe';
-    return `<span class="file-type-icon-wrap type-${escapeHtml(t)}">${icon('file-text').replace('width="16" height="16"', 'width="18" height="18"')}</span>`;
+    const lockOverlay = isPrivate ? `<span class="file-type-lock-dot" title="Private file">${iconLockSmall()}</span>` : '';
+    return `<span class="file-type-icon-wrap type-${escapeHtml(t)}">${icon('file-text').replace('width="16" height="16"', 'width="18" height="18"')}${lockOverlay}</span>`;
 }
 
 function dedupeFilesById(files) {
@@ -674,7 +688,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
             return;
         }
 
-        listEl.innerHTML = shown
+        const fileCardsHtml = shown
             .map((file) => {
                 const type = file.file_type;
                 const typeKey = type;
@@ -684,57 +698,62 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 const ownerLabel = isOwner ? 'You' : (file.owner_username || `User #${file.owner_id}`);
                 const dateTitle = file.created_at ? new Date(file.created_at).toLocaleString() : '';
                 const dateLabel = file.created_at ? timeAgo(file.created_at) : '—';
-                const lockOverlay = !isPublic && !isOwner ? `<div class="file-card-locked" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Access restricted</div>` : '';
-                const lockOwnerMuted = !isPublic && isOwner ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>` : '';
+
+                // Owner action buttons as icons
+                const ownerActions = isOwner ? `
+                    <button class="btn-icon toggle-vis-btn" data-file-id="${escapeHtml(String(file.id))}" data-is-public="${isPublic ? '1' : '0'}" title="${isPublic ? 'Make private' : 'Make public'}">
+                        ${isPublic ? iconLockSmall() : iconGlobe()}
+                    </button>
+                    <button class="btn-icon btn-icon-danger delete-file-btn" data-file-id="${escapeHtml(String(file.id))}" data-filename="${escapeHtml(file.filename || '')}" title="Delete file">
+                        ${iconTrashSmall()}
+                    </button>
+                ` : '';
 
                 return `
-                  <div class="file-card ${String(file.id) === String(lastVisibilityUpdatedId) ? 'card-updated' : ''}">
+                  <div class="file-card ${String(file.id) === String(lastVisibilityUpdatedId) ? 'card-updated' : ''}" data-file-id="${escapeHtml(String(file.id))}">
                     <div class="file-card-icon">
-                      ${widgetFileTypeIcon(typeKey)}
+                      ${getFileTypeIconEl(typeKey, !isPublic)}
                     </div>
                     <div class="file-card-body">
                       <div class="file-card-name">${escapeHtml(file.filename || '')}</div>
                       <div class="file-card-meta">
                         <span class="file-type-badge ${escapeHtml(typeKey)}">${escapeHtml(typeKey)}</span>
-                        <span class="visibility-badge ${isPublic ? 'public' : 'private'}">${escapeHtml(visibilityLabel)}</span>
+                        <span class="vis-badge ${isPublic ? 'vis-public' : 'vis-private'}">${escapeHtml(visibilityLabel)}</span>
                         <span class="file-owner">${escapeHtml(ownerLabel)}</span>
                         <span class="file-date" ${dateTitle ? `title="${escapeHtml(dateTitle)}"` : ''}>${escapeHtml(dateLabel)}</span>
                       </div>
                     </div>
                     <div class="file-card-actions">
-                      <button class="btn btn-ghost btn-sm" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
-                      ${isOwner ? `<button class="btn btn-ghost btn-sm" type="button" data-toggle-visibility="${escapeHtml(String(file.id))}">${isPublic ? 'Make Private' : 'Make Public'}</button>` : ''}
-                      ${isOwner ? `<button class="btn btn-ghost btn-sm btn-danger" type="button" data-delete-file="${escapeHtml(String(file.id))}">Delete</button>` : ''}
+                      ${ownerActions}
+                      <button class="btn btn-ghost btn-sm view-btn" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
                     </div>
-
-                    ${lockOverlay}
-                    ${lockOwnerMuted}
                   </div>
                 `;
             })
             .join('');
 
-        listEl.querySelectorAll('[data-view-file]').forEach((btn) => {
+        // Wrap in unified container
+        listEl.innerHTML = `<div class="files-list">${fileCardsHtml}</div>`;
+
+        // View button listeners
+        listEl.querySelectorAll('.view-btn, [data-view-file]').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 await openFileModal(btn.getAttribute('data-view-file'));
             });
         });
 
-        listEl.querySelectorAll('[data-delete-file]').forEach((btn) => {
+        // Delete button listeners (icon buttons)
+        listEl.querySelectorAll('.delete-file-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
-                const fileId = btn.getAttribute('data-delete-file');
+                const fileId = btn.getAttribute('data-file-id');
                 const cardEl = btn.closest('.file-card');
                 const actionsEl = cardEl?.querySelector('.file-card-actions');
                 if (!actionsEl) return;
 
                 actionsEl.innerHTML = `
-                  <span class="delete-confirm-text">Delete this file?</span>
-                  <button class="btn btn-danger btn-sm confirm-yes"
-                          type="button"
-                          data-delete-file-id="${escapeHtml(String(fileId))}">
-                    Delete
-                  </button>
-                  <button class="btn btn-ghost btn-sm confirm-no" type="button">Cancel</button>
+                  <span class="delete-confirm-text" style="font-size:12px;color:var(--destructive);">Delete?</span>
+                  <button class="btn btn-destructive btn-sm confirm-yes" type="button">Yes</button>
+                  <button class="btn btn-ghost btn-sm confirm-no" type="button">No</button>
                 `;
 
                 const confirmYes = actionsEl.querySelector('.confirm-yes');
@@ -749,7 +768,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 if (confirmYes) {
                     confirmYes.addEventListener('click', async () => {
                         confirmYes.disabled = true;
-                        confirmYes.textContent = 'Deleting...';
+                        confirmYes.textContent = '...';
 
                         try {
                             await apiDelete(`/api/files/${fileId}`);
@@ -767,24 +786,51 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
             });
         });
 
-        listEl.querySelectorAll('[data-toggle-visibility]').forEach((btn) => {
+        // Toggle visibility button listeners (icon buttons)
+        listEl.querySelectorAll('.toggle-vis-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
-                const fileId = btn.getAttribute('data-toggle-visibility');
+                const fileId = btn.getAttribute('data-file-id');
+                const isPublic = btn.getAttribute('data-is-public') === '1';
                 const file = filesSorted.find((f) => String(f.id) === String(fileId));
                 if (!file) return;
-                const nextIsPublic = !(file.is_public === 1 || file.is_public === true);
+                const nextIsPublic = !isPublic;
                 try {
                     await apiPatch(`/api/files/${fileId}/visibility`, { is_public: nextIsPublic ? 1 : 0 });
-                    file.is_public = nextIsPublic;
+                    file.is_public = nextIsPublic ? 1 : 0;
                     lastVisibilityUpdatedId = fileId;
+
+                    // Update button in place
+                    btn.innerHTML = nextIsPublic ? iconLockSmall() : iconGlobe();
+                    btn.title = nextIsPublic ? 'Make private' : 'Make public';
+                    btn.setAttribute('data-is-public', nextIsPublic ? '1' : '0');
+
+                    // Update visibility badge in meta row
+                    const card = btn.closest('.file-card');
+                    const badge = card?.querySelector('.vis-badge');
+                    if (badge) {
+                        badge.textContent = nextIsPublic ? 'Public' : 'Private';
+                        badge.className = `vis-badge ${nextIsPublic ? 'vis-public' : 'vis-private'}`;
+                    }
+
+                    // Update lock dot on icon
+                    const iconWrap = card?.querySelector('.file-type-icon-wrap');
+                    const existingLock = iconWrap?.querySelector('.file-type-lock-dot');
+                    if (nextIsPublic && existingLock) {
+                        existingLock.remove();
+                    } else if (!nextIsPublic && !existingLock && iconWrap) {
+                        iconWrap.insertAdjacentHTML('beforeend', `<span class="file-type-lock-dot" title="Private file">${iconLockSmall()}</span>`);
+                    }
+
+                    // Flash animation
+                    card?.classList.add('card-updated');
+                    setTimeout(() => card?.classList.remove('card-updated'), 500);
+
                     showToast(
                         nextIsPublic
                             ? 'File is now public — visible to all users.'
                             : 'File is now private — only you can access it.',
                         'success'
                     );
-                    refreshTabs(activeTab);
-                    renderListForTab(tabKey);
                 } catch (e) {
                     showToast(String(e.message || 'Update failed'), 'error');
                 }
@@ -1395,7 +1441,7 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
         return;
     }
 
-    container.innerHTML = shown
+    const fileCardsHtml = shown
         .map((file) => {
             const typeKey = file.file_type;
             const isOwner = !!file.isOwner;
@@ -1403,55 +1449,60 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
             const visibilityLabel = isPublic ? 'Public' : 'Private';
             const ownerLabel = isOwner ? 'You' : (file.owner_username || `User #${file.owner_id}`);
             const dateLabel = file.created_at ? new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-            const lockedOther = !isPublic && !isOwner;
-            const lockedOwner = !isPublic && isOwner;
 
-            const cardLocked = lockedOther
-                ? `<div class="file-card-locked" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Access restricted</div>`
-                : lockedOwner
-                    ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>`
-                    : '';
+            // Owner action buttons as icons
+            const ownerActions = isOwner ? `
+                <button class="btn-icon toggle-vis-btn" data-file-id="${escapeHtml(String(file.id))}" data-is-public="${isPublic ? '1' : '0'}" title="${isPublic ? 'Make private' : 'Make public'}">
+                    ${isPublic ? iconLockSmall() : iconGlobe()}
+                </button>
+                <button class="btn-icon btn-icon-danger delete-file-btn" data-file-id="${escapeHtml(String(file.id))}" data-filename="${escapeHtml(file.filename || '')}" title="Delete file">
+                    ${iconTrashSmall()}
+                </button>
+            ` : '';
 
             return `
-              <div class="file-card ${highlightId && String(file.id) === highlightId ? 'card-updated' : ''}">
+              <div class="file-card ${highlightId && String(file.id) === highlightId ? 'card-updated' : ''}" data-file-id="${escapeHtml(String(file.id))}">
                 <div class="file-card-icon">
-                  ${fileTypeIcon(typeKey)}
+                  ${getFileTypeIconEl(typeKey, !isPublic)}
                 </div>
                 <div class="file-card-body">
                   <div class="file-card-name">${escapeHtml(file.filename || '')}</div>
                   <div class="file-card-meta">
                     <span class="file-type-badge ${escapeHtml(typeKey)}">${escapeHtml(typeKey)}</span>
-                    <span class="visibility-badge ${isPublic ? 'public' : 'private'}">${escapeHtml(visibilityLabel)}</span>
+                    <span class="vis-badge ${isPublic ? 'vis-public' : 'vis-private'}">${escapeHtml(visibilityLabel)}</span>
                     <span class="file-owner">${escapeHtml(ownerLabel)}</span>
                     <span class="file-date">${escapeHtml(dateLabel)}</span>
                   </div>
                 </div>
                 <div class="file-card-actions">
-                  <button class="btn btn-ghost btn-sm" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
-                  ${isOwner ? `<button class="btn btn-ghost btn-sm" type="button" data-toggle-visibility="${escapeHtml(String(file.id))}">${isPublic ? 'Make Private' : 'Make Public'}</button>` : ''}
-                  ${isOwner ? `<button class="btn btn-ghost btn-sm btn-danger" type="button" data-delete-file="${escapeHtml(String(file.id))}">Delete</button>` : ''}
+                  ${ownerActions}
+                  <button class="btn btn-ghost btn-sm view-btn" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
                 </div>
-                ${cardLocked}
               </div>
             `;
         })
         .join('');
 
-    container.querySelectorAll('[data-view-file]').forEach((btn) => {
+    // Wrap in unified container
+    container.innerHTML = `<div class="files-list">${fileCardsHtml}</div>`;
+
+    // View button listeners
+    container.querySelectorAll('.view-btn, [data-view-file]').forEach((btn) => {
         btn.addEventListener('click', async () => openFileModal(btn.getAttribute('data-view-file')));
     });
 
-    container.querySelectorAll('[data-delete-file]').forEach((btn) => {
+    // Delete button listeners (icon buttons)
+    container.querySelectorAll('.delete-file-btn').forEach((btn) => {
         btn.addEventListener('click', async () => {
-            const fileId = btn.getAttribute('data-delete-file');
+            const fileId = btn.getAttribute('data-file-id');
             const cardEl = btn.closest('.file-card');
             const actionsEl = cardEl?.querySelector('.file-card-actions');
             if (!actionsEl) return;
 
             actionsEl.innerHTML = `
-              <span class="delete-confirm-text">Delete this file?</span>
-              <button class="btn btn-destructive btn-sm confirm-yes" type="button">Delete</button>
-              <button class="btn btn-ghost btn-sm confirm-no" type="button">Cancel</button>
+              <span class="delete-confirm-text" style="font-size:12px;color:var(--destructive);">Delete?</span>
+              <button class="btn btn-destructive btn-sm confirm-yes" type="button">Yes</button>
+              <button class="btn btn-ghost btn-sm confirm-no" type="button">No</button>
             `;
 
             const confirmYes = actionsEl.querySelector('.confirm-yes');
@@ -1466,7 +1517,7 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
             if (confirmYes) {
                 confirmYes.addEventListener('click', async () => {
                     confirmYes.disabled = true;
-                    confirmYes.textContent = 'Deleting...';
+                    confirmYes.textContent = '...';
 
                     try {
                         await apiDelete(`/api/files/${fileId}`);
@@ -1481,16 +1532,45 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
         });
     });
 
-    container.querySelectorAll('[data-toggle-visibility]').forEach((btn) => {
+    // Toggle visibility button listeners (icon buttons)
+    container.querySelectorAll('.toggle-vis-btn').forEach((btn) => {
         btn.addEventListener('click', async () => {
-            const fileId = btn.getAttribute('data-toggle-visibility');
+            const fileId = btn.getAttribute('data-file-id');
+            const isPublic = btn.getAttribute('data-is-public') === '1';
             const file = files.find((f) => String(f.id) === String(fileId));
             if (!file) return;
-            const nextIsPublic = !(file.is_public === 1 || file.is_public === true);
+            const nextIsPublic = !isPublic;
 
             try {
                 await apiPatch(`/api/files/${fileId}/visibility`, { is_public: nextIsPublic ? 1 : 0 });
                 file.is_public = nextIsPublic ? 1 : 0;
+
+                // Update button in place
+                btn.innerHTML = nextIsPublic ? iconLockSmall() : iconGlobe();
+                btn.title = nextIsPublic ? 'Make private' : 'Make public';
+                btn.setAttribute('data-is-public', nextIsPublic ? '1' : '0');
+
+                // Update visibility badge in meta row
+                const card = btn.closest('.file-card');
+                const badge = card?.querySelector('.vis-badge');
+                if (badge) {
+                    badge.textContent = nextIsPublic ? 'Public' : 'Private';
+                    badge.className = `vis-badge ${nextIsPublic ? 'vis-public' : 'vis-private'}`;
+                }
+
+                // Update lock dot on icon
+                const iconWrap = card?.querySelector('.file-type-icon-wrap');
+                const existingLock = iconWrap?.querySelector('.file-type-lock-dot');
+                if (nextIsPublic && existingLock) {
+                    existingLock.remove();
+                } else if (!nextIsPublic && !existingLock && iconWrap) {
+                    iconWrap.insertAdjacentHTML('beforeend', `<span class="file-type-lock-dot" title="Private file">${iconLockSmall()}</span>`);
+                }
+
+                // Flash animation
+                card?.classList.add('card-updated');
+                setTimeout(() => card?.classList.remove('card-updated'), 500);
+
                 if (typeof callbacks.onVisibilityToggle === 'function') callbacks.onVisibilityToggle(fileId, nextIsPublic);
             } catch (e) {
                 showToast(String(e.message || 'Update failed'), 'error');
