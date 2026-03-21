@@ -31,6 +31,7 @@ BakeSync/
 │   └── migrations/    # Incremental SQL (e.g. rollback helpers)
 └── docs/              # Documentation
     ├── ARCHITECTURE.md    # Stack, Mermaid diagrams, file layout
+    ├── DATABASE.md        # Full SQL reference (schema + migrations)
     ├── FRONTEND.md        # Pages, JS modules, UI behavior
     └── TECHNICAL_REPORT.md # IAS102 security analysis
 ```
@@ -153,6 +154,7 @@ Open: http://localhost:5500/pages/login.html
 
 - [Technical report](./docs/TECHNICAL_REPORT.md) — Security analysis and reflection questions  
 - [System architecture](./docs/ARCHITECTURE.md) — Stack, diagrams (Mermaid), repository layout  
+- [Database SQL](./docs/DATABASE.md) — Full schema and migration queries in one place  
 - [Frontend guide](./docs/FRONTEND.md) — Pages, `sidebar.js` / `dashboard.js`, theme and navigation  
 
 Diagrams in `docs/ARCHITECTURE.md` render on GitHub; for local viewing use [mermaid.live](https://mermaid.live) or a Mermaid-capable editor.

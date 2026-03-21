@@ -218,6 +218,7 @@ BakeSync/
 │   └── migrations/             # Optional SQL (e.g. rollback_* helpers)
 └── docs/
     ├── ARCHITECTURE.md         # This file
+    ├── DATABASE.md             # Full SQL reference
     ├── FRONTEND.md             # UI pages and JS modules
     └── TECHNICAL_REPORT.md     # Security analysis
 ```
