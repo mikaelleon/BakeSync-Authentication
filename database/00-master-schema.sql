@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     otp_code VARCHAR(128) DEFAULT NULL,
     otp_expires_at DATETIME DEFAULT NULL,
     is_verified TINYINT(1) DEFAULT 0,
+    mfa_enabled TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -620,10 +621,10 @@ CREATE TABLE IF NOT EXISTS files (
 -- =====================================================
 
 -- Seed Users
-INSERT INTO users (username, email, password_hash, role, is_verified) VALUES
-('manager_maria', 'manager@bakesync.demo', '$2a$10$7070hG8mxo8QvHqzg8WVNeDeCu5WkipBE4h57QjCXQK//9ES1Fv3i', 'admin', 1),
-('baker_juan', 'baker@bakesync.demo', '$2a$10$dY289C4kETAYOKpxtLwCg.M0cCbVF0ADbZXyypcHy9KjzvLJZ3h8q', 'staff', 1),
-('cashier_ana', 'cashier@bakesync.demo', '$2a$10$Pk5kIA6boJNqzO8kA2MuPeotNaIwtlLMcfnBS8hH5jWvpCP7WSM3u', 'user', 1);
+INSERT INTO users (username, email, password_hash, role, is_verified, mfa_enabled) VALUES
+('manager_maria', 'manager@bakesync.demo', '$2a$10$7070hG8mxo8QvHqzg8WVNeDeCu5WkipBE4h57QjCXQK//9ES1Fv3i', 'admin', 1, 0),
+('baker_juan', 'baker@bakesync.demo', '$2a$10$dY289C4kETAYOKpxtLwCg.M0cCbVF0ADbZXyypcHy9KjzvLJZ3h8q', 'staff', 1, 0),
+('cashier_ana', 'cashier@bakesync.demo', '$2a$10$Pk5kIA6boJNqzO8kA2MuPeotNaIwtlLMcfnBS8hH5jWvpCP7WSM3u', 'user', 1, 0);
 
 -- Seed Roles
 INSERT INTO roles (name, display_name, description, level) VALUES

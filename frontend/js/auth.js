@@ -107,6 +107,22 @@ async function handleLogin(event) {
             localStorage.removeItem(REMEMBER_ME_KEY);
         }
 
+        // MFA gate: backend returns mfaRequired instead of a JWT.
+        if (data.mfaRequired) {
+            sessionStorage.setItem('mfa_userId', String(data.userId));
+            sessionStorage.setItem('mfa_email', data.email || '');
+            sessionStorage.setItem('mfa_username', data.username || '');
+            sessionStorage.setItem('mfa_role', data.role || '');
+            if (data.expiresAt) {
+                sessionStorage.setItem('mfa_expires_at', data.expiresAt);
+            }
+            sessionStorage.setItem('mfa_remember_me', rememberMe ? '1' : '0');
+
+            // Redirect to MFA OTP page to finish sign in.
+            window.location.href = 'mfa.html';
+            return;
+        }
+
         if (typeof persistLoginSession === 'function') {
             persistLoginSession(data, rememberMe);
         } else {
@@ -284,9 +300,16 @@ function clearAllFieldErrors() {
     // Only run on OTP page
     if (!document.getElementById('otp-form')) return;
 
-    const userId = sessionStorage.getItem('reg_userId');
-    const username = sessionStorage.getItem('reg_username');
-    const email = sessionStorage.getItem('reg_email');
+    const mfaUserId = sessionStorage.getItem('mfa_userId');
+    const isMfa = !!mfaUserId;
+
+    const expiryKey = isMfa ? 'mfa_expires_at' : 'reg_expires_at';
+    const verifyEndpoint = isMfa ? '/api/auth/verify-mfa-otp' : '/api/auth/verify-otp';
+    const resendEndpoint = isMfa ? '/api/auth/resend-mfa-otp' : '/api/auth/resend-otp';
+
+    const userId = isMfa ? mfaUserId : sessionStorage.getItem('reg_userId');
+    const username = isMfa ? sessionStorage.getItem('mfa_username') : sessionStorage.getItem('reg_username');
+    const email = isMfa ? sessionStorage.getItem('mfa_email') : sessionStorage.getItem('reg_email');
 
     if (!userId) {
         window.location.href = 'login.html';
@@ -312,7 +335,7 @@ function clearAllFieldErrors() {
     let resendCooldownUntilMs = Date.now() + 60000; // mirrors backend: ~1 minute between resends
 
     let seconds = 600; // fallback if reg_expires_at isn't present
-    const regExpiresAt = sessionStorage.getItem('reg_expires_at');
+    const regExpiresAt = sessionStorage.getItem(expiryKey);
     let regExpiresAtMs = regExpiresAt ? new Date(regExpiresAt).getTime() : null;
     if (regExpiresAt) {
         const msLeft = regExpiresAtMs - Date.now();
@@ -363,7 +386,7 @@ function clearAllFieldErrors() {
         // Backend lockout clears otp_code/otp_expires_at, so reflect as expired in UI.
         seconds = 0;
         // Prevent countdown from "reverting" to the old expiry after lockout starts.
-        sessionStorage.removeItem('reg_expires_at');
+        sessionStorage.removeItem(expiryKey);
         regExpiresAtMs = null;
         updateTimerDisplay();
         updateVerifyEnabled();
@@ -436,7 +459,7 @@ function clearAllFieldErrors() {
         successAlert.style.display = 'none';
 
         try {
-            const response = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+            const response = await fetch(`${API_BASE}${verifyEndpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: parseInt(userId), otp })
@@ -469,11 +492,19 @@ function clearAllFieldErrors() {
                 return;
             }
 
-            // Clear registration session
-            sessionStorage.removeItem('reg_userId');
-            sessionStorage.removeItem('reg_username');
-            sessionStorage.removeItem('reg_email');
-            sessionStorage.removeItem('reg_expires_at');
+            // Clear OTP session state
+            if (isMfa) {
+                sessionStorage.removeItem('mfa_userId');
+                sessionStorage.removeItem('mfa_username');
+                sessionStorage.removeItem('mfa_email');
+                sessionStorage.removeItem('mfa_role');
+                sessionStorage.removeItem('mfa_expires_at');
+            } else {
+                sessionStorage.removeItem('reg_userId');
+                sessionStorage.removeItem('reg_username');
+                sessionStorage.removeItem('reg_email');
+                sessionStorage.removeItem('reg_expires_at');
+            }
 
             // Show success state
             clearInterval(countdownInterval);
@@ -483,6 +514,29 @@ function clearAllFieldErrors() {
 
             // Redirect after 2 seconds
             setTimeout(() => {
+                if (isMfa) {
+                    const rememberMe = sessionStorage.getItem('mfa_remember_me') === '1';
+                    sessionStorage.removeItem('mfa_remember_me');
+
+                    if (data && data.token) {
+                        if (typeof persistLoginSession === 'function') {
+                            persistLoginSession(data, rememberMe);
+                        } else {
+                            sessionStorage.setItem('token', data.token);
+                            sessionStorage.setItem('role', data.role);
+                            sessionStorage.setItem('username', data.username);
+                        }
+                    }
+
+                    const redirectMap = {
+                        'admin': 'dashboard-admin.html',
+                        'staff': 'dashboard-staff.html',
+                        'user': 'dashboard-user.html'
+                    };
+                    window.location.href = redirectMap[data.role] || 'dashboard-user.html';
+                    return;
+                }
+
                 window.location.href = 'login.html?registered=true';
             }, 2000);
         } catch (error) {
@@ -506,7 +560,7 @@ function clearAllFieldErrors() {
             successAlert.style.display = 'none';
 
             try {
-                const response = await fetch(`${API_BASE}/api/auth/resend-otp`, {
+                const response = await fetch(`${API_BASE}${resendEndpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: parseInt(userId) })
@@ -538,7 +592,7 @@ function clearAllFieldErrors() {
 
                 // Reset server-synced timer + resend cooldown.
                 if (data.expiresAt) {
-                    sessionStorage.setItem('reg_expires_at', data.expiresAt);
+                    sessionStorage.setItem(expiryKey, data.expiresAt);
                     regExpiresAtMs = new Date(data.expiresAt).getTime();
                     const msLeft = regExpiresAtMs - Date.now();
                     seconds = Math.max(0, Math.ceil(msLeft / 1000));

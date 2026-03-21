@@ -96,7 +96,9 @@ async function apiRequest(endpoint, options = {}) {
                 endpointLc.includes('/api/auth/login') ||
                 endpointLc.includes('/api/auth/register') ||
                 endpointLc.includes('/api/auth/verify-otp') ||
-                endpointLc.includes('/api/auth/resend-otp');
+                endpointLc.includes('/api/auth/resend-otp') ||
+                endpointLc.includes('/api/auth/verify-mfa-otp') ||
+                endpointLc.includes('/api/auth/resend-mfa-otp');
 
             // Improvement: on expired JWT, redirect to login with context.
             if (!isAuthEndpoint) {

@@ -41,6 +41,10 @@ async function loadProfile() {
     const data = await apiGet('/api/users/me');
     document.getElementById('username').value = data.username || '';
     document.getElementById('email').value = data.email || '';
+    const mfaEnabledEl = document.getElementById('mfa-enabled');
+    if (mfaEnabledEl) {
+        mfaEnabledEl.checked = !!data.mfa_enabled;
+    }
 }
 
 async function handleProfileSave(event) {
@@ -49,6 +53,8 @@ async function handleProfileSave(event) {
     const saveBtn = document.getElementById('save-btn');
     const username = document.getElementById('username').value.trim();
     const email = document.getElementById('email').value.trim();
+    const mfaEnabledEl = document.getElementById('mfa-enabled');
+    const mfaEnabled = mfaEnabledEl ? (mfaEnabledEl.checked ? 1 : 0) : undefined;
 
     clearProfileFieldErrors();
 
@@ -68,7 +74,11 @@ async function handleProfileSave(event) {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({ username, email }),
+                body: JSON.stringify({
+                    username,
+                    email,
+                    ...(mfaEnabledEl ? { mfa_enabled: mfaEnabled } : {})
+                }),
         });
 
         let data = {};
