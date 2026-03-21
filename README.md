@@ -27,7 +27,8 @@ BakeSync/
 │   ├── js/            # JavaScript modules
 │   └── css/           # Stylesheets
 ├── database/          # SQL schema and migrations
-│   ├── schema.sql     # Main database schema
+│   ├── schema.sql     # Main database schema + seeds
+│   ├── full_database.sql  # Same as schema.sql (single complete .sql file)
 │   └── migrations/    # Incremental SQL (e.g. rollback helpers)
 └── docs/              # Documentation
     ├── ARCHITECTURE.md    # Stack, Mermaid diagrams, file layout
@@ -98,7 +99,7 @@ BakeSync/
 
 ### 1. Database Setup
 
-Run `database/schema.sql` on your MySQL instance.
+Run **`database/schema.sql`** or **`database/full_database.sql`** on your MySQL instance (same schema and seeds; `full_database.sql` is the all-in-one script with a short header).
 
 Optional: `database/migrations/` may contain one-off scripts (for example, rolling back optional columns if you experimented with file-storage fields). Apply only what matches your live schema.
 

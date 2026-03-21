@@ -215,6 +215,7 @@ BakeSync/
 │       └── style.css
 ├── database/
 │   ├── schema.sql              # Main schema + seed data
+│   ├── full_database.sql       # Complete install (same as schema + header)
 │   └── migrations/             # Optional SQL (e.g. rollback_* helpers)
 └── docs/
     ├── ARCHITECTURE.md         # This file

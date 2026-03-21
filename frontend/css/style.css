@@ -2308,6 +2308,161 @@ input[type="checkbox"] {
     font-weight: 500;
 }
 
+/* ── Password input with toggle ─────────────────────── */
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrapper input {
+    padding-right: 2.75rem;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--muted-foreground);
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: color 150ms ease, background 150ms ease;
+}
+
+.password-toggle-btn:hover {
+    color: var(--foreground);
+    background: var(--muted);
+}
+
+.password-toggle-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* ── Remember me checkbox row ───────────────────────── */
+.remember-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.remember-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.remember-checkbox input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+.remember-checkbox label {
+    font-size: 0.875rem;
+    color: var(--foreground);
+    cursor: pointer;
+    margin-bottom: 0;
+}
+
+.forgot-link {
+    font-size: 0.875rem;
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 150ms ease;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Forgot password modal ──────────────────────────── */
+.forgot-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9000;
+    padding: 1rem;
+}
+
+.forgot-modal-overlay.show {
+    display: flex;
+}
+
+.forgot-modal {
+    background: var(--card);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.forgot-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.forgot-modal-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.forgot-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--muted-foreground);
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+}
+
+.forgot-modal-close:hover {
+    background: var(--muted);
+}
+
+.forgot-modal-body {
+    margin-bottom: 1rem;
+}
+
+.forgot-modal-body p {
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    margin-bottom: 1rem;
+}
+
+.forgot-step {
+    display: none;
+}
+
+.forgot-step.active {
+    display: block;
+}
+
 /* ── Page transition ─────────────────────────────────── */
 @keyframes pageFadeIn {
     from {

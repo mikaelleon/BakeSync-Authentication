@@ -1,6 +1,62 @@
 // BakeSync API Wrapper
 // Centralized fetch wrapper with authentication
 
+const LS_AUTH_TOKEN = 'bakesync_token';
+const LS_AUTH_ROLE = 'bakesync_role';
+const LS_AUTH_USERNAME = 'bakesync_username';
+const LS_SESSION_PERSIST = 'bakesync_session_persist';
+
+function clearPersistedSession() {
+    try {
+        localStorage.removeItem(LS_AUTH_TOKEN);
+        localStorage.removeItem(LS_AUTH_ROLE);
+        localStorage.removeItem(LS_AUTH_USERNAME);
+        localStorage.removeItem(LS_SESSION_PERSIST);
+    } catch (e) {
+        /* ignore */
+    }
+}
+
+/**
+ * Restore JWT from localStorage when "Remember me" was used (new browser tab / return visit).
+ */
+function restorePersistedSession() {
+    try {
+        if (sessionStorage.getItem('token')) return;
+        if (localStorage.getItem(LS_SESSION_PERSIST) !== '1') return;
+        const t = localStorage.getItem(LS_AUTH_TOKEN);
+        if (!t) return;
+        sessionStorage.setItem('token', t);
+        sessionStorage.setItem('role', localStorage.getItem(LS_AUTH_ROLE) || 'user');
+        sessionStorage.setItem('username', localStorage.getItem(LS_AUTH_USERNAME) || '');
+    } catch (e) {
+        /* ignore */
+    }
+}
+
+/**
+ * Store session after login. When rememberMe is true, duplicate credentials to localStorage for persistence.
+ */
+function persistLoginSession(loginPayload, rememberMe) {
+    const username =
+        loginPayload.username ||
+        (loginPayload.user && loginPayload.user.username) ||
+        '';
+
+    sessionStorage.setItem('token', loginPayload.token);
+    sessionStorage.setItem('role', loginPayload.role);
+    sessionStorage.setItem('username', username);
+
+    if (rememberMe) {
+        localStorage.setItem(LS_AUTH_TOKEN, loginPayload.token);
+        localStorage.setItem(LS_AUTH_ROLE, loginPayload.role);
+        localStorage.setItem(LS_AUTH_USERNAME, username);
+        localStorage.setItem(LS_SESSION_PERSIST, '1');
+    } else {
+        clearPersistedSession();
+    }
+}
+
 /**
  * Make an authenticated API request
  * @param {string} endpoint - API endpoint (e.g., '/api/auth/login')
@@ -45,6 +101,7 @@ async function apiRequest(endpoint, options = {}) {
             // Improvement: on expired JWT, redirect to login with context.
             if (!isAuthEndpoint) {
                 sessionStorage.clear();
+                clearPersistedSession();
                 window.__bakesyncJwtExpiredRedirected = true;
                 window.location.href = 'login.html?expired=true';
             }
@@ -149,3 +206,5 @@ function getRoleBadgeClass(role) {
 function getRoleDisplayName(role) {
     return ROLE_DISPLAY[role] || role;
 }
+
+restorePersistedSession();

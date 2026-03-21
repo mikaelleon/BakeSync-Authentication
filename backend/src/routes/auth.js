@@ -1,9 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { generateOTP, getOTPExpiry } = require('../utils/otp');
-const { sendOTPEmail } = require('../utils/mailer');
+const { sendOTPEmail, sendPasswordResetOTPEmail } = require('../utils/mailer');
 
 const router = express.Router();
 const MAX_OTP_ATTEMPTS = 5;
@@ -423,6 +424,239 @@ router.post('/login', async (req, res) => {
         });
     } catch (error) {
         console.error('[Auth] Login error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Send password reset OTP to user's email
+ */
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        // Find verified user by email
+        const [rows] = await pool.execute(
+            'SELECT id, username, email, is_verified FROM users WHERE email = ?',
+            [email]
+        );
+
+        // For security, always return success even if user not found
+        // This prevents email enumeration attacks
+        if (rows.length === 0 || rows[0].is_verified !== 1) {
+            // Still return success to prevent enumeration
+            return res.status(200).json({
+                message: 'If an account exists with this email, a reset code has been sent.'
+            });
+        }
+
+        const user = rows[0];
+
+        // Generate OTP for password reset
+        const otpCode = generateOTP();
+        const otpExpiry = getOTPExpiry();
+
+        // Store reset OTP in database (reusing otp_code and otp_expires_at fields)
+        await pool.execute(
+            'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+            [otpCode, otpExpiry, user.id]
+        );
+
+        // Send password reset email
+        try {
+            await sendPasswordResetOTPEmail(user.email, user.username, otpCode);
+        } catch (emailError) {
+            console.error('[Auth] Failed to send reset email:', emailError && emailError.message ? emailError.message : emailError);
+            return res.status(500).json({
+                error: 'Failed to send reset email. Please try again.'
+            });
+        }
+
+        res.status(200).json({
+            message: 'If an account exists with this email, a reset code has been sent.'
+        });
+    } catch (error) {
+        console.error('[Auth] Forgot password error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/verify-reset-otp
+ * Verify password reset OTP and return a reset token
+ */
+router.post('/verify-reset-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ error: 'Email and OTP are required' });
+        }
+
+        // Find user by email
+        const [rows] = await pool.execute(
+            'SELECT id, username, otp_code, otp_expires_at, otp_attempts, otp_locked_until, is_verified FROM users WHERE email = ?',
+            [email]
+        );
+
+        if (rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired code' });
+        }
+
+        const user = rows[0];
+
+        // Must be a verified user (forgot password only works for existing accounts)
+        if (user.is_verified !== 1) {
+            return res.status(401).json({ error: 'Invalid or expired code' });
+        }
+
+        const now = new Date();
+
+        // Check lockout
+        if (user.otp_locked_until) {
+            const lockedUntil = new Date(user.otp_locked_until);
+            if (now < lockedUntil) {
+                return res.status(429).json({
+                    error: 'Too many invalid attempts. Please try again later.',
+                    lockedUntil: lockedUntil.toISOString()
+                });
+            }
+        }
+
+        // Check OTP expiry
+        if (!user.otp_expires_at) {
+            return res.status(401).json({ error: 'Invalid or expired code' });
+        }
+
+        const otpExpiry = new Date(user.otp_expires_at);
+        if (now > otpExpiry) {
+            return res.status(401).json({ error: 'Code has expired. Please request a new one.' });
+        }
+
+        // Verify OTP
+        if (user.otp_code !== otp) {
+            const prevAttempts = Number(user.otp_attempts || 0);
+            const nextAttempts = prevAttempts + 1;
+
+            if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+                const lockedUntil = new Date(now);
+                lockedUntil.setMinutes(lockedUntil.getMinutes() + OTP_LOCK_MINUTES);
+
+                await pool.execute(
+                    'UPDATE users SET otp_attempts = ?, otp_locked_until = ?, otp_code = NULL, otp_expires_at = NULL WHERE id = ?',
+                    [MAX_OTP_ATTEMPTS, lockedUntil, user.id]
+                );
+
+                return res.status(429).json({
+                    error: 'Too many invalid attempts. Please try again later.',
+                    lockedUntil: lockedUntil.toISOString()
+                });
+            }
+
+            await pool.execute(
+                'UPDATE users SET otp_attempts = ? WHERE id = ?',
+                [nextAttempts, user.id]
+            );
+
+            return res.status(401).json({
+                error: 'Invalid code.',
+                attemptsRemaining: MAX_OTP_ATTEMPTS - nextAttempts
+            });
+        }
+
+        // Generate a secure reset token (valid for 15 minutes)
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+        // Store reset token (repurposing otp fields)
+        await pool.execute(
+            'UPDATE users SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0 WHERE id = ?',
+            [resetToken, resetTokenExpiry, user.id]
+        );
+
+        res.status(200).json({
+            message: 'Code verified. You can now reset your password.',
+            resetToken: resetToken
+        });
+    } catch (error) {
+        console.error('[Auth] Verify reset OTP error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Reset password using the reset token
+ */
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email, resetToken, newPassword } = req.body;
+
+        if (!email || !resetToken || !newPassword) {
+            return res.status(400).json({ error: 'Email, reset token, and new password are required' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        // Find user by email
+        const [rows] = await pool.execute(
+            'SELECT id, otp_code, otp_expires_at, is_verified FROM users WHERE email = ?',
+            [email]
+        );
+
+        if (rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired reset token' });
+        }
+
+        const user = rows[0];
+
+        // Verify user is verified
+        if (user.is_verified !== 1) {
+            return res.status(401).json({ error: 'Invalid or expired reset token' });
+        }
+
+        // Verify reset token
+        if (user.otp_code !== resetToken) {
+            return res.status(401).json({ error: 'Invalid or expired reset token' });
+        }
+
+        // Check token expiry
+        if (!user.otp_expires_at) {
+            return res.status(401).json({ error: 'Invalid or expired reset token' });
+        }
+
+        const tokenExpiry = new Date(user.otp_expires_at);
+        if (new Date() > tokenExpiry) {
+            return res.status(401).json({ error: 'Reset token has expired. Please request a new one.' });
+        }
+
+        // Hash new password
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+
+        // Update password and clear reset token
+        await pool.execute(
+            'UPDATE users SET password_hash = ?, otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0, otp_locked_until = NULL WHERE id = ?',
+            [passwordHash, user.id]
+        );
+
+        res.status(200).json({
+            message: 'Password reset successfully. You can now log in with your new password.'
+        });
+    } catch (error) {
+        console.error('[Auth] Reset password error:', error && error.message ? error.message : error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

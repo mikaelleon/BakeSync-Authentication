@@ -1,7 +1,10 @@
 # BakeSync IAS102 — Database SQL (full)
 
-This file is a **single reference** for all database definitions used by the IAS102 prototype.  
-**Source of truth for a fresh install:** run `database/schema.sql` on MySQL 8.0+ (or compatible).
+This file is a **single reference** for all database definitions used by the IAS102 prototype.
+
+**Executable one-file install (SQL only):** `database/full_database.sql` — same logical content as `database/schema.sql`, with a short header. Use either file for a fresh database; keep them in sync when you change the schema.
+
+**Also:** `database/schema.sql` (original name used in README quick start).
 
 ---
 
