@@ -57,8 +57,11 @@ BakeSync/
 - **GET** `/api/dashboard/user` - User only
 
 ### Files (DAC Protected)
-- **GET** `/api/files` - List accessible files
-- **POST** `/api/files` - Create new file
+- **GET** `/api/files` - List accessible files (includes `owner_username`; deduped by `id`)
+
+**File uploads:** Run `backend/migrations/002_files_storage.sql` on MySQL to add `file_url`, `file_size_kb`, `original_name`, `mime_type`. Without these columns, file APIs will error until migrated.
+
+- **POST** `/api/files` — JSON (metadata-only) or `multipart/form-data` with field `file` (max 250 MB). Files are stored locally under `/uploads` unless `CLOUDINARY_URL` is set (then uploaded to Cloudinary).
 - **GET** `/api/files/:id` - View file (owner or public)
 - **DELETE** `/api/files/:id` - Delete file (owner only)
 - **PATCH** `/api/files/:id/visibility` - Toggle visibility (owner only)

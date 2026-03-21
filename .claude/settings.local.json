@@ -5,7 +5,8 @@
       "Bash(npm install:*)",
       "Bash(cd:*)",
       "Bash(grep:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(git ls-tree:*)"
     ]
   }
 }

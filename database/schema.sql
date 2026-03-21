@@ -24,8 +24,12 @@ CREATE TABLE IF NOT EXISTS users (
 -- Files table for DAC demonstration
 CREATE TABLE IF NOT EXISTS files (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    filename VARCHAR(100) NOT NULL,
+    filename VARCHAR(255) NOT NULL,
     description TEXT,
+    file_url VARCHAR(500) DEFAULT NULL,
+    file_size_kb INT DEFAULT NULL,
+    original_name VARCHAR(255) DEFAULT NULL,
+    mime_type VARCHAR(100) DEFAULT NULL,
     file_type ENUM('recipe', 'report', 'schedule', 'invoice') NOT NULL,
     owner_id INT NOT NULL,
     is_public TINYINT(1) DEFAULT 0,

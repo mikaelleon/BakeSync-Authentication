@@ -43,14 +43,24 @@
                     </div>
                 </div>
 
-                <div id="files-cards"></div>
-
-                <div class="content-card" style="margin-top: 1.25rem;">
-                    <button type="button" class="btn btn-primary btn-full" id="files-upload-toggle">+ Add New Document</button>
+                <div class="content-card files-upload-card" style="margin-bottom: 1.25rem;">
+                    <button type="button" class="btn btn-primary" id="files-upload-toggle">+ Add New Document</button>
                     <div id="files-upload-panel" class="upload-panel collapsed">
                         <div class="upload-panel-body">
+                            <input type="file" id="files-file-input" class="sr-only" accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.xlsx,.xls,.csv,.ods,.ppt,.pptx,.odp,.jpg,.jpeg,.png,.webp,.gif,.zip" aria-label="Choose file" />
+
+                            <div class="file-drop-zone" id="file-drop-zone" role="button" tabindex="0">
+                                <strong>Drag and drop</strong> or click to browse<br />
+                                <span style="font-size: 0.8125rem;">.pdf .xlsx .docx .txt .csv .pptx .jpg .png .zip — max 250 MB</span>
+                            </div>
+
+                            <div id="files-selected-preview" class="files-selected-preview">
+                                <span id="files-selected-name"></span>
+                                <button type="button" class="btn btn-ghost btn-sm" id="files-clear-file" aria-label="Remove file">× Remove</button>
+                            </div>
+
                             <div class="upload-row">
-                                <input type="text" id="files-upload-filename" placeholder="Filename (e.g., croissant_recipe.pdf)" />
+                                <input type="text" id="files-upload-filename" placeholder="Filename (auto-filled from file)" />
                                 <select id="files-upload-type">
                                     <option value="recipe">Recipe</option>
                                     <option value="report">Report</option>
@@ -74,15 +84,24 @@
                                         <span>Public</span>
                                     </label>
                                 </div>
+                            </div>
 
-                                <div class="upload-actions">
-                                    <button type="button" class="btn btn-primary" id="files-upload-submit">Upload File</button>
-                                    <button type="button" class="btn btn-ghost" id="files-upload-cancel">Cancel</button>
+                            <div id="upload-progress-wrap" style="display: none;">
+                                <div class="upload-progress-track">
+                                    <div id="upload-progress-fill" class="upload-progress-fill"></div>
                                 </div>
+                                <div id="upload-progress-text" style="font-size: 0.8125rem; color: var(--muted-foreground);"></div>
+                            </div>
+
+                            <div class="upload-row upload-actions-row">
+                                <button type="button" class="btn btn-primary" id="files-upload-submit">Upload File</button>
+                                <button type="button" class="btn btn-outline" id="files-upload-cancel">Cancel</button>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <div id="files-cards"></div>
             </main>
         </div>
     </div>

@@ -277,26 +277,11 @@ function renderSidebarContent() {
           <div class="sidebar-avatar" style="background:${roleColorVar(role)}">${String(username).slice(0, 1).toUpperCase()}</div>
           <div class="sidebar-user-meta">
             <div class="sidebar-user-name">${username}</div>
-            <div class="sidebar-user-role">
-              ${
-                typeof renderRoleBadge === 'function'
-                  ? renderRoleBadge(role)
-                  : `<span class="sidebar-role-text">${getRoleDisplayName(role)}</span><span class="sidebar-role-dot" style="background:${roleColorVar(role)}"></span>`
-              }
-            </div>
           </div>
         </div>
-
-        <button class="sidebar-signout" type="button" id="sidebar-signout-btn">
-          <span class="sidebar-signout-icon" aria-hidden="true">${iconSvg('log-out')}</span>
-          <span class="sidebar-signout-text">Sign Out</span>
-        </button>
       </div>
     </div>
   `;
-
-  const signout = document.getElementById('sidebar-signout-btn');
-  if (signout) signout.addEventListener('click', logout);
 
   const toggleBtn = getToggleButton();
   if (toggleBtn) {
@@ -371,6 +356,7 @@ function setActiveNavItem() {
 
   // Clear active styles
   sidebar.querySelectorAll('.sidebar-link.active').forEach((el) => el.classList.remove('active'));
+  sidebar.querySelectorAll('.sidebar-link-parent-active').forEach((el) => el.classList.remove('sidebar-link-parent-active'));
 
   // File-type nav items (files.html)
   const fileNavItems = sidebar.querySelectorAll('.sidebar-link[data-path]');
@@ -399,6 +385,14 @@ function setActiveNavItem() {
     const anchorPath = href.split('?')[0];
     const isActive = currentPath.endsWith(anchorPath) || currentPath.includes(anchorPath);
     if (isActive) a.classList.add('active');
+  });
+
+  // Document Manager parent: subtle active when a type tab (Recipes, etc.) is open
+  const onFilesPage = currentPath.includes('files.html');
+  sidebar.querySelectorAll('a.sidebar-link[data-path="files.html"]').forEach((a) => {
+    const dt = a.getAttribute('data-type') || '';
+    if (dt !== '') return;
+    if (onFilesPage && currentType) a.classList.add('sidebar-link-parent-active');
   });
 }
 

@@ -182,6 +182,14 @@ async function confirmDelete(event) {
     const deleteForm = document.getElementById('delete-form');
     if (deleteForm) deleteForm.addEventListener('submit', confirmDelete);
 
+    const deleteReveal = document.getElementById('delete-account-reveal');
+    const deleteExpanded = document.getElementById('delete-account-expanded');
+    deleteReveal?.addEventListener('click', () => {
+        if (!deleteExpanded) return;
+        const show = deleteExpanded.style.display === 'none';
+        deleteExpanded.style.display = show ? 'block' : 'none';
+    });
+
     // Collapsible password change section toggle
     const passwordToggle = document.getElementById('password-card-toggle');
     const passwordBody = document.getElementById('password-form-body');
@@ -191,7 +199,9 @@ async function confirmDelete(event) {
         if (!passwordBody) return;
         const isOpen = passwordBody.style.display !== 'none';
         passwordBody.style.display = isOpen ? 'none' : 'block';
-        if (passwordChevron) passwordChevron.textContent = isOpen ? '▼' : '▲';
+        if (passwordChevron) {
+            passwordChevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
     });
 
     // Password change submit
@@ -264,7 +274,7 @@ async function confirmDelete(event) {
             showToast('Password changed successfully.', 'success');
 
             if (passwordBody) passwordBody.style.display = 'none';
-            if (passwordChevron) passwordChevron.textContent = '▼';
+            if (passwordChevron) passwordChevron.style.transform = 'rotate(0deg)';
         } catch (e) {
             showToast('Network error. Password not changed.', 'error');
         } finally {
