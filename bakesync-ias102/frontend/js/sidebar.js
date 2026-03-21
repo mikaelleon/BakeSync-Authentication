@@ -19,9 +19,8 @@ function getSidebarNavByRole(role) {
     { label: 'Reports', href: 'files.html?type=report', fileType: 'report' },
     { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule' },
     { label: 'Invoices', href: 'files.html?type=invoice', fileType: 'invoice' },
+    { label: 'Settings', href: 'profile.html' },
     { divider: true },
-    { label: 'System Overview', href: null, visualOnly: true },
-    { label: 'User Activity', href: null, visualOnly: true }
   ];
 
   const bakerItems = [
@@ -29,8 +28,9 @@ function getSidebarNavByRole(role) {
     { label: 'Document Manager', href: 'files.html', primary: true },
     { label: 'My Recipes', href: 'files.html?type=recipe', fileType: 'recipe' },
     { label: 'Schedules', href: 'files.html?type=schedule', fileType: 'schedule' },
-    { label: 'Production Log', href: null, visualOnly: true },
+    { label: 'Settings', href: 'profile.html' },
     { divider: true },
+    { label: 'Production Log', href: null, visualOnly: true },
     { label: 'Raw Materials', href: null, visualOnly: true }
   ];
 
@@ -39,6 +39,7 @@ function getSidebarNavByRole(role) {
     { label: 'Document Manager', href: 'files.html', primary: true },
     { label: 'My Invoices', href: 'files.html?type=invoice', fileType: 'invoice' },
     { label: 'Reports', href: 'files.html?type=report', fileType: 'report' },
+    { label: 'Settings', href: 'profile.html' },
     { divider: true },
     { label: 'Point of Sale', href: null, visualOnly: true }
   ];
@@ -86,8 +87,13 @@ function labelToIconKey(label) {
   if (l.includes('report')) return 'bar-chart';
   if (l.includes('schedule')) return 'calendar';
   if (l.includes('invoice')) return 'file-text';
+  if (l.includes('settings')) return 'settings';
   if (l.includes('point of sale')) return 'file-text';
   return 'files';
+}
+
+function sidebarLogoMarkSvg() {
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="m4.6 13.11 5.79-3.21c1.89-1.05 4.79 1.78 3.71 3.71l-3.22 5.81C8.8 23.16.79 15.23 4.6 13.11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m10.5 9.5-1-2.29C9.2 6.48 8.8 6 8 6H4.5C2.79 6 2 6.5 2 8.5a7.71 7.71 0 0 0 2 4.83" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 6c0-1.55.24-4-2-4-2 0-2.5 2.17-2.5 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m14.5 13.5 2.29 1c.73.3 1.21.7 1.21 1.5v3.5c0 1.71-.5 2.5-2.5 2.5a7.71 7.71 0 0 1-4.83-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 16c1.55 0 4-.24 4 2 0 2-2.17 2.5-4 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
 }
 
 function getSidebarElements() {
@@ -145,6 +151,14 @@ function renderBreadcrumb() {
   };
 
   const allCrumbs = fileType ? [...crumbs, typeLabel[fileType] || fileType] : crumbs;
+
+  // Dashboard home: sidebar already shows active "Dashboard" — skip redundant crumb.
+  if (allCrumbs.length === 1 && allCrumbs[0] === 'Dashboard') {
+    breadcrumbEl.innerHTML = '';
+    breadcrumbEl.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  breadcrumbEl.removeAttribute('aria-hidden');
 
   breadcrumbEl.innerHTML = allCrumbs
     .map((crumb, index) => {
@@ -212,7 +226,7 @@ function renderSidebarContent() {
     <div class="sidebar-inner">
       <div class="sidebar-header">
         <a href="${dashboardUrl}" class="sidebar-logo-link sidebar-logo" title="Go to Dashboard">
-          <div class="sidebar-logo-mark" aria-hidden="true">🥐</div>
+          <div class="sidebar-logo-mark" aria-hidden="true">${sidebarLogoMarkSvg()}</div>
           <div class="sidebar-logo-wordmark">
             <div class="sidebar-logo-title">BakeSync</div>
             <div class="sidebar-logo-subtitle">Bakery ERP</div>
@@ -272,11 +286,6 @@ function renderSidebarContent() {
             </div>
           </div>
         </div>
-
-        <a class="sidebar-settings" href="profile.html">
-          <span class="sidebar-settings-icon" aria-hidden="true">${iconSvg('settings')}</span>
-          <span class="sidebar-settings-text">Settings</span>
-        </a>
 
         <button class="sidebar-signout" type="button" id="sidebar-signout-btn">
           <span class="sidebar-signout-icon" aria-hidden="true">${iconSvg('log-out')}</span>

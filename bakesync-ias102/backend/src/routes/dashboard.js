@@ -121,6 +121,16 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
              LIMIT 10`
         );
 
+        const activityRows = recentActivity || [];
+        const seenFileIds = new Set();
+        const uniqueActivity = [];
+        for (const f of activityRows) {
+            const fid = f && f.id != null ? String(f.id) : '';
+            if (!fid || seenFileIds.has(fid)) continue;
+            seenFileIds.add(fid);
+            uniqueActivity.push(f);
+        }
+
         res.status(200).json({
             stats: {
                 totalUsers,
@@ -131,7 +141,7 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (req, res) => {
                 privateFiles,
                 systemAlerts: deniedCount
             },
-            recentActivity: (recentActivity || []).map((f) => ({
+            recentActivity: uniqueActivity.map((f) => ({
                 id: f.id,
                 text: `${f.uploader} uploaded ${f.filename}`,
                 type: 'upload',

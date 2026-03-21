@@ -417,6 +417,22 @@ function fileTypeIcon(type) {
     return getFileTypeIconEl(type);
 }
 
+/** Document Manager widget: one Lucide-style file icon + type color from wrapper (no per-type glyph). */
+function widgetFileTypeIcon(type) {
+    const t = type || 'recipe';
+    return `<span class="file-type-icon-wrap type-${escapeHtml(t)}">${icon('file-text').replace('width="16" height="16"', 'width="18" height="18"')}</span>`;
+}
+
+function dedupeFilesById(files) {
+    const map = new Map();
+    for (const f of files) {
+        if (!f || f.id == null) continue;
+        const k = String(f.id);
+        if (!map.has(k)) map.set(k, f);
+    }
+    return [...map.values()];
+}
+
 function ensureFileModal() {
     let modal = document.getElementById('file-modal');
     if (modal) return modal;
@@ -552,53 +568,6 @@ function primaryUploadLink(typeKey) {
     return `files.html?action=upload&type=recipe`;
 }
 
-function docUploadPanelHTML({ role, typeKeyDefault }) {
-    const typeSelectDefault = typeKeyDefault || 'recipe';
-    const types = [
-        { value: 'recipe', label: 'Recipe' },
-        { value: 'report', label: 'Report' },
-        { value: 'schedule', label: 'Schedule' },
-        { value: 'invoice', label: 'Invoice' }
-    ];
-    const options = types
-        .map((t) => `<option value="${t.value}" ${t.value === typeSelectDefault ? 'selected' : ''}>${t.label}</option>`)
-        .join('');
-
-    return `
-      <div class="upload-panel" id="widget-upload-panel">
-        <div class="upload-panel-body">
-          <div class="upload-row">
-            <input type="text" id="widget-upload-filename" placeholder="Filename" class="input" />
-            <select id="widget-upload-type" class="input">
-              ${options}
-            </select>
-          </div>
-
-          <div class="upload-row" style="margin-top: 0.75rem;">
-            <textarea id="widget-upload-description" rows="2" placeholder="Optional description"></textarea>
-          </div>
-
-          <div class="upload-row" style="margin-top: 0.75rem;">
-            <div class="upload-visibility">
-              <label class="checkbox-wrapper">
-                <input type="radio" name="widget-is-public" value="0" checked />
-                <span>Private</span>
-              </label>
-              <label class="checkbox-wrapper">
-                <input type="radio" name="widget-is-public" value="1" />
-                <span>Public</span>
-              </label>
-            </div>
-            <div class="upload-actions">
-              <button class="btn btn-primary" type="button" id="widget-upload-submit">Upload</button>
-              <button class="btn btn-ghost" type="button" id="widget-upload-cancel">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-}
-
 async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint = '/api/files') {
     containerEl.innerHTML = `
       <section class="doc-widget">
@@ -607,40 +576,20 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
             <div class="doc-widget-title">Document Manager</div>
             <div class="doc-widget-subtext">Your files first, then shared documents</div>
           </div>
-          <div class="doc-widget-header-right">
-            <a href="files.html" class="btn btn-outline btn-sm">View All &rarr;</a>
-            <button type="button" class="btn btn-primary btn-sm" id="widget-upload-open-btn">+ Add Recipe</button>
-          </div>
         </div>
 
         <div class="filter-tabs" id="widget-filter-tabs"></div>
         <div id="widget-file-list" class="widget-file-list"></div>
-
-        <div id="widget-upload-toggle-row" class="widget-upload-toggle-row" style="display:none;"></div>
-        ${docUploadPanelHTML({ role, typeKeyDefault: roleDefaultDocumentTab(role) === 'all' ? 'recipe' : roleDefaultDocumentTab(role) })}
       </section>
     `;
 
-    // Inline panel collapsed by default.
-    const uploadPanel = containerEl.querySelector('#widget-upload-panel');
-    if (uploadPanel) uploadPanel.classList.add('collapsed');
-
     const activeDefault = roleDefaultDocumentTab(role);
-    // Tabs will be rendered after we load accessible files (so counts are correct).
-    const ROLE_DEFAULT_FILE_TYPE = { admin: 'recipe', staff: 'recipe', user: 'invoice' };
-    const roleDefaultFileType = ROLE_DEFAULT_FILE_TYPE[role] || 'recipe';
 
     const listEl = containerEl.querySelector('#widget-file-list');
     const tabsEl = containerEl.querySelector('#widget-filter-tabs');
-    const addBtn = containerEl.querySelector('#widget-upload-open-btn');
 
-    const uploadBtnTypeDefault = activeDefault === 'all' ? 'recipe' : activeDefault;
-    if (containerEl.querySelector('#widget-upload-type')) {
-        containerEl.querySelector('#widget-upload-type').value = uploadBtnTypeDefault;
-    }
-
-    // Local cache: API called once.
-    const allFiles = await apiGet(apiFilesEndpoint).then((x) => (Array.isArray(x) ? x : []));
+    // Local cache: API called once; dedupe by id (guards duplicate rows / double render).
+    const allFiles = dedupeFilesById(await apiGet(apiFilesEndpoint).then((x) => (Array.isArray(x) ? x : [])));
     // Improvement 12: own files first, then public files from others (both sorted by created_at desc).
     const myFiles = allFiles
         .filter((f) => !!f.isOwner)
@@ -711,7 +660,7 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 return `
                   <div class="file-card ${String(file.id) === String(lastVisibilityUpdatedId) ? 'card-updated' : ''}">
                     <div class="file-card-icon">
-                      ${fileTypeIcon(typeKey)}
+                      ${widgetFileTypeIcon(typeKey)}
                       ${lockOverlay || lockOwnerMuted ? '' : ''}
                     </div>
                     <div class="file-card-body">
@@ -821,10 +770,6 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
         const tabKey = btn.getAttribute('data-tab');
         activeTab = tabKey;
 
-        // Role-aware upload defaults: keep widget upload type in sync with active tab.
-        const typeSel = containerEl.querySelector('#widget-upload-type');
-        if (typeSel) typeSel.value = tabKey !== 'all' ? tabKey : roleDefaultFileType;
-
         // Update active class + re-render using cached files.
         tabsEl.querySelectorAll('.filter-tab').forEach((t) => t.classList.toggle('active', t.getAttribute('data-tab') === tabKey));
         renderListForTab(tabKey);
@@ -832,106 +777,20 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
 
     // Initial render
     renderListForTab(activeTab);
-
-    // Upload panel toggle (within widget)
-    function openUploadPanel() {
-        if (!uploadPanel) return;
-        uploadPanel.classList.remove('collapsed');
-        uploadPanel.classList.add('open');
-        // Ensure type select aligns to active tab when uploading.
-        const typeSel = containerEl.querySelector('#widget-upload-type');
-        if (typeSel && activeTab && activeTab !== 'all') typeSel.value = activeTab;
-    }
-    function closeUploadPanel() {
-        if (!uploadPanel) return;
-        uploadPanel.classList.remove('open');
-        uploadPanel.classList.add('collapsed');
-    }
-
-    if (addBtn) addBtn.addEventListener('click', openUploadPanel);
-
-    const cancelBtn = containerEl.querySelector('#widget-upload-cancel');
-    const submitBtn = containerEl.querySelector('#widget-upload-submit');
-    if (cancelBtn) cancelBtn.addEventListener('click', closeUploadPanel);
-
-    if (submitBtn) {
-        submitBtn.addEventListener('click', async () => {
-            const filename = containerEl.querySelector('#widget-upload-filename')?.value?.trim();
-            const type = containerEl.querySelector('#widget-upload-type')?.value;
-            const description = containerEl.querySelector('#widget-upload-description')?.value?.trim() || '';
-            const vis = containerEl.querySelector('input[name="widget-is-public"]:checked')?.value || '0';
-
-            if (!filename) {
-                showToast('Please enter a filename.', 'error');
-                return;
-            }
-
-            try {
-                const res = await apiPost('/api/files', {
-                    filename,
-                    file_type: type,
-                    description: description || null,
-                    is_public: vis === '1'
-                });
-
-                // Optimistic prepend into cached list (no re-fetch needed).
-                const newFile = {
-                    id: res.fileId || res.insertId || res.id,
-                    filename,
-                    description,
-                    file_type: type,
-                    owner_id: null,
-                    is_public: vis === '1' ? 1 : 0,
-                    isOwner: true,
-                    created_at: new Date().toISOString()
-                };
-                filesSorted.unshift(newFile);
-                showToast('File added successfully.', 'success');
-                refreshTabs(activeTab);
-                closeUploadPanel();
-                renderListForTab(activeTab);
-            } catch (e) {
-                showToast(String(e.message || 'Upload failed'), 'error');
-            }
-        });
-    }
-}
-
-function renderRBACInfoCard(role) {
-    const container = document.createElement('div');
-    container.className = 'content-card';
-
-    const roleText =
-        role === 'admin'
-            ? 'Full system access. All RBAC roles visible to you.'
-            : role === 'staff'
-                ? 'Recipe and production access only. Financial modules are restricted to Managers.'
-                : 'POS and invoice access only. Inventory and recipe management is restricted.';
-
-    container.innerHTML = `
-      <details class="rbac-card">
-        <summary style="cursor:pointer; font-weight:600; padding-bottom: 0.5rem;">RBAC Information</summary>
-        <div class="rbac-card-body" style="color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6;">
-          ${escapeHtml(roleText).replace(/\\n/g, '<br/>')}
-        </div>
-      </details>
-    `;
-
-    return container;
 }
 
 function renderHeaderBlock(role) {
     const user = getCurrentUser();
     const greeting = getGreeting();
     const dateStr = formatDateLong(new Date().toISOString());
-    const roleName = getRoleDisplayName(role);
+    const uname = (user.username || '').trim();
 
     const el = document.createElement('div');
     el.innerHTML = `
       <div style="margin-bottom: 1.5rem;">
         <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start;">
           <div style="font-size:24px; font-weight:700; color: var(--foreground);">
-            ${escapeHtml(`${greeting}, ${roleName} ${user.username || ''}.`.trim())}
+            ${escapeHtml(uname ? `${greeting}, ${uname}.` : `${greeting}.`)}
           </div>
           <div style="font-size:13px; color: var(--muted-foreground); padding-top: 8px;">
             ${escapeHtml(dateStr)}
@@ -954,7 +813,6 @@ function renderQuickActions(role) {
     })();
 
     const ghost1 = role === 'admin' ? 'files.html' : role === 'staff' ? 'files.html?type=schedule' : 'files.html?type=report';
-    const ghost2 = '#';
 
     const title = role === 'admin' ? '+ New Document' : role === 'staff' ? '+ New Recipe' : '+ New Invoice';
 
@@ -963,7 +821,6 @@ function renderQuickActions(role) {
       <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
         <a href="${escapeHtml(primary)}" class="btn btn-primary">${escapeHtml(title)}</a>
         <a href="${escapeHtml(ghost1)}" class="btn btn-outline">${escapeHtml(role === 'admin' ? 'View All Files' : role === 'staff' ? 'My Schedules' : 'My Reports')}</a>
-        <a href="${escapeHtml(ghost2)}" class="btn btn-outline" onclick="return false;">${escapeHtml(role === 'admin' ? 'System Overview' : role === 'staff' ? 'Production Log' : 'Open POS')}</a>
       </div>
     `;
     return container;
@@ -1157,21 +1014,17 @@ function renderActivityFeed(activity) {
 
     el.innerHTML = activity
         .map((item) => {
-            const dotColor =
-                item.type === 'upload' ? 'var(--success)' :
-                    item.type === 'delete' ? 'var(--destructive)' :
-                        item.type === 'view' ? '#3b82f6' :
-                            item.type === 'login' ? '#a855f7' : 'var(--primary)';
-            const roleBadge = item.uploaderRole ? renderRoleBadge(item.uploaderRole) : '';
+            const rr = item.uploaderRole && ['admin', 'staff', 'user'].includes(item.uploaderRole)
+                ? item.uploaderRole
+                : '';
+            const roleMod = rr ? ` activity-item--role-${rr}` : '';
             return `
-              <div class="activity-item" style="display:flex; gap: 0.75rem; padding: 0.5rem 0; align-items:flex-start;">
-                <div class="activity-dot" style="width: 8px; height: 8px; border-radius: 9999px; background:${dotColor}; margin-top: 6px;"></div>
-                <div class="activity-body" style="flex:1;">
-                  <div class="activity-text" style="font-size: 0.875rem; color: var(--foreground); display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+              <div class="activity-item${roleMod}">
+                <div class="activity-body">
+                  <div class="activity-text">
                     ${escapeHtml(item.text || '')}
-                    ${roleBadge}
                   </div>
-                  <span class="activity-time" style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 2px;"
+                  <span class="activity-time"
                         title="${new Date(item.time).toLocaleString()}">
                     ${escapeHtml(timeAgo(item.time))}
                   </span>
@@ -1187,68 +1040,52 @@ function renderActivityFeed(activity) {
  * Admin-only panel showing recent denied DAC decisions.
  */
 async function renderAccessDeniedLogPanel() {
+    let safeLogs;
+    try {
+        const logs = await apiGet('/api/files/logs/denied');
+        safeLogs = Array.isArray(logs) ? logs : [];
+    } catch (error) {
+        console.error('Denied access logs load error:', error);
+        return null;
+    }
+
+    if (safeLogs.length === 0) return null;
+
     const card = document.createElement('div');
     card.className = 'content-card';
     card.innerHTML = `
       <h3>DAC Access Denial Log</h3>
-      <p class="text-sm text-muted" style="margin-top: -0.25rem; margin-bottom: 1rem; color: var(--muted-foreground);">
+      <p class="text-sm text-muted denied-log-intro">
         Recent denied access attempts recorded by DAC rules.
       </p>
-      <div id="denied-log-list">
-        <div style="color: var(--muted-foreground); font-size: 0.875rem;">Loading...</div>
-      </div>
+      <div id="denied-log-list"></div>
     `;
 
     const wrap = card.querySelector('#denied-log-list');
-    try {
-        const logs = await apiGet('/api/files/logs/denied');
-        const safeLogs = Array.isArray(logs) ? logs : [];
+    wrap.innerHTML = safeLogs
+        .map((log) => {
+            const when = log.time ? timeAgo(log.time) : '—';
+            const user = log.user || 'Unknown';
+            const file = log.filename || 'Unknown file';
+            const action = log.action || '—';
+            const reason = log.reason || '—';
 
-        if (safeLogs.length === 0) {
-            wrap.innerHTML = `
-              <div style="text-align:center; color: var(--muted-foreground); font-size: 0.875rem; padding: 1rem 0;">
-                No denied access attempts.
+            return `
+              <div class="denied-log-row">
+                <div class="denied-log-dot" aria-hidden="true"></div>
+                <div class="denied-log-body">
+                  <div class="denied-log-action">${escapeHtml(action)} denied</div>
+                  <div class="denied-log-meta">
+                    User: ${escapeHtml(user)}<br/>
+                    File: ${escapeHtml(file)}<br/>
+                    Reason: ${escapeHtml(reason)}
+                  </div>
+                  <div class="denied-log-when">${escapeHtml(when)}</div>
+                </div>
               </div>
             `;
-            return card;
-        }
-
-        wrap.innerHTML = safeLogs
-            .map((log) => {
-                const when = log.time ? timeAgo(log.time) : '—';
-                const user = log.user || 'Unknown';
-                const file = log.filename || 'Unknown file';
-                const action = log.action || '—';
-                const reason = log.reason || '—';
-
-                return `
-                  <div style="display:flex; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); margin-bottom: 0.75rem; align-items:flex-start;">
-                    <div style="width: 10px; height: 10px; border-radius: 9999px; margin-top: 7px; background: var(--destructive); flex-shrink: 0;"></div>
-                    <div style="flex: 1;">
-                      <div style="font-size: 0.875rem; color: var(--foreground);">
-                        ${escapeHtml(action)} denied
-                      </div>
-                      <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 2px; line-height: 1.4;">
-                        User: ${escapeHtml(user)}<br/>
-                        File: ${escapeHtml(file)}<br/>
-                        Reason: ${escapeHtml(reason)}
-                      </div>
-                      <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 6px;">
-                        ${escapeHtml(when)}
-                      </div>
-                    </div>
-                  </div>
-                `;
-            })
-            .join('');
-    } catch (error) {
-        console.error('Denied access logs load error:', error);
-        wrap.innerHTML = `
-          <div style="text-align:center; color: var(--destructive); font-size: 0.875rem; padding: 1rem 0;">
-            Failed to load denied access logs.
-          </div>
-        `;
-    }
+        })
+        .join('');
 
     return card;
 }
@@ -1404,33 +1241,6 @@ function renderNotificationsPanel(notifications, containerEl) {
     return section;
 }
 
-function renderDashboardShell(role, dashboardData) {
-    const main = document.getElementById('page-content') || document.body;
-    main.innerHTML = '';
-
-    main.appendChild(renderHeaderBlock(role));
-    main.appendChild(renderQuickActions(role));
-
-    const statsRow = renderKpiRow(role, dashboardData.stats || {});
-    main.appendChild(statsRow);
-
-    const widgetWrap = document.createElement('div');
-    widgetWrap.style.marginTop = '1.5rem';
-    main.appendChild(widgetWrap);
-    // Document Manager widget inserted async below.
-
-    if (role === 'admin' && (dashboardData.recentActivity || []).length) {
-        // Activity is below widget per spec; we insert after widget async below.
-    }
-
-    // RBAC card at bottom
-    const rbacCard = renderRBACInfoCard(role);
-    rbacCard.style.marginTop = '1.5rem';
-
-    main.appendChild(widgetWrap);
-    main.appendChild(document.createElement('div')).appendChild(rbacCard);
-}
-
 async function renderRoleDashboardContent(role) {
     const data = await apiGet(`/api/dashboard/${role}`);
     const main = document.getElementById('page-content');
@@ -1455,17 +1265,13 @@ async function renderRoleDashboardContent(role) {
     // Role-specific panels
     if (role === 'admin') {
         main.appendChild(renderActivityFeed(data.recentActivity || []));
-        main.appendChild(await renderAccessDeniedLogPanel());
+        const deniedPanel = await renderAccessDeniedLogPanel();
+        if (deniedPanel) main.appendChild(deniedPanel);
     } else if (role === 'staff') {
         renderProductionScheduleTable(data.schedule || [], main);
     } else if (role === 'user') {
         renderNotificationsPanel(data.notifications || [], main);
     }
-
-    // RBAC card (collapsible)
-    const rbacCard = renderRBACInfoCard(role);
-    rbacCard.style.marginTop = '1.5rem';
-    main.appendChild(rbacCard);
 }
 
 // Override role entrypoints (used by HTML pages)
