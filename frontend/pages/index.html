@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BakeSync</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="alternate icon" href="../favicon.svg" />
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m4.6 13.11 5.79-3.21c1.89-1.05 4.79 1.78 3.71 3.71l-3.22 5.81C8.8 23.16.79 15.23 4.6 13.11Z"/>
+                        <path d="m10.5 9.5-1-2.29C9.2 6.48 8.8 6 8 6H4.5C2.79 6 2 6.5 2 8.5a7.71 7.71 0 0 0 2 4.83"/>
+                        <path d="M8 6c0-1.55.24-4-2-4-2 0-2.5 2.17-2.5 4"/>
+                        <path d="m14.5 13.5 2.29 1c.73.3 1.21.7 1.21 1.5v3.5c0 1.71-.5 2.5-2.5 2.5a7.71 7.71 0 0 1-4.83-2"/>
+                        <path d="M18 16c1.55 0 4-.24 4 2 0 2-2.17 2.5-4 2.5"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="card-title">BakeSync</h1>
+                    <p class="card-description">Bakery Management System</p>
+                </div>
+            </div>
+            <div class="card-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 1rem; color: var(--muted-foreground);">Redirecting...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script>
+        // Redirect based on authentication status
+        if (isAuthenticated()) {
+            const role = sessionStorage.getItem('role');
+            const dashboardMap = {
+                'admin': 'dashboard-admin.html',
+                'staff': 'dashboard-staff.html',
+                'user': 'dashboard-user.html'
+            };
+            window.location.href = dashboardMap[role] || 'dashboard-user.html';
+        } else {
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>

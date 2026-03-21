@@ -1,173 +1,164 @@
-# BakeSync ERP
+# BakeSync IAS102
 
-A comprehensive Next.js 14 ERP system for bakery operations featuring inventory management, recipe tracking, POS system, production planning, and financial analytics.
+Authentication and Access Control System for Bakery Management
 
-## Features
+## Overview
 
-- **Inventory Management** - Track raw materials and finished goods with real-time stock levels
-- **Recipe Management** - Create, edit, and manage bakery recipes with cost analysis
-- **Point of Sale (POS)** - Process customer transactions with responsive cart interface
-- **Production Planning** - Schedule and track production batches
-- **Financial Analytics** - Monitor expenses, revenue, and profitability
-- **Role-based Access Control** - Different permissions for managers, bakers, and cashiers
-- **Real-time Inventory Tracking** - Live stock updates and low-stock alerts
-- **Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
+This project demonstrates core security concepts for the IAS102 course:
 
-## Tech Stack
-
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: Radix UI + shadcn/ui
-- **Package Manager**: pnpm
-- **Icons**: Lucide React
-
-## Prerequisites
-
-Before running this project, make sure you have the following installed:
-
-- **Node.js** (version 18 or higher)
-- **pnpm** (recommended package manager)
-
-## Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/mikaelleon/BakeSync.git
-   cd BakeSync
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
-
-3. **Start the development server**
-   ```bash
-   pnpm dev
-   ```
-
-4. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## Available Scripts
-
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm start` - Start production server
-- `pnpm lint` - Run ESLint
-- `pnpm test` - Run Playwright tests (server starts automatically)
-- `pnpm test:ui` - Run tests with interactive UI mode
-- `pnpm test:headed` - Run tests in headed mode (visible browser)
+- **RBAC** (Role-Based Access Control): Admin / Staff / User roles
+- **DAC** (Discretionary Access Control): File ownership with public/private visibility
+- **MFA/OTP**: Email OTP for registration, account deletion, and **password reset** (forgot-password flow)
+- **JWT Authentication**: Stateless token-based session management; optional **Remember me** persists the session in the browser across visits (see `docs/FRONTEND.md`)
 
 ## Project Structure
 
 ```
-bakesync-erp/
-├── app/                    # Next.js App Router pages
-│   ├── (app)/             # Main application routes
-│   │   ├── dashboard/     # Dashboard page
-│   │   ├── inventory/     # Inventory management
-│   │   ├── recipes/       # Recipe management
-│   │   ├── pos/          # Point of Sale system
-│   │   ├── production/    # Production planning
-│   │   └── financials/    # Financial analytics
-│   └── login/             # Authentication
-├── components/            # Reusable UI components
-│   └── ui/               # shadcn/ui components
-├── lib/                  # Utility functions and types
-├── hooks/                # Custom React hooks
-├── documents/            # Project documentation
-│   ├── setup/            # Setup and configuration guides
-│   ├── implementation/   # Implementation guides
-│   ├── analysis/         # Analysis and fixes
-│   ├── features/         # Feature documentation
-│   └── gantts/           # Gantt chart files
-├── docs/                 # Additional documentation assets
-│   ├── database/         # Database scripts
-│   └── assets/           # Documentation images
-└── public/               # Static assets
+BakeSync/
+├── backend/           # Node.js + Express API server
+│   ├── src/
+│   │   ├── config/    # Database configuration
+│   │   ├── middleware/# Auth, RBAC, CSRF middleware
+│   │   ├── routes/    # API route handlers
+│   │   └── utils/     # OTP and email utilities
+│   └── package.json
+├── frontend/          # Static HTML/CSS/JS
+│   ├── pages/         # HTML pages (login, dashboard, files, etc.)
+│   ├── js/            # JavaScript modules
+│   └── css/           # Stylesheets
+├── database/          # SQL schema and migrations
+│   ├── schema.sql     # Main database schema + seeds
+│   ├── full_database.sql  # Same as schema.sql (single complete .sql file)
+│   └── migrations/    # Incremental SQL (e.g. rollback helpers)
+└── docs/              # Documentation
+    ├── ARCHITECTURE.md    # Stack, Mermaid diagrams, file layout
+    ├── DATABASE.md        # Full SQL reference (schema + migrations)
+    ├── FRONTEND.md        # Pages, JS modules, UI behavior
+    └── TECHNICAL_REPORT.md # IAS102 security analysis
 ```
 
-## User Roles
+## Tech Stack
 
-- **Manager** - Full access to all features
-- **Baker** - Access to recipes, production, and raw materials inventory
-- **Cashier** - Access to POS system and finished goods inventory
+| Layer    | Technology              |
+|----------|-------------------------|
+| Frontend | HTML / CSS / JavaScript |
+| Backend  | Node.js + Express       |
+| Database | MySQL 8.0 (Aiven Cloud) |
+| Email    | Resend SDK              |
+| Auth     | JWT + bcrypt            |
 
-## Default Login Credentials
+## API Endpoints
 
-The application uses mock authentication. You can access different roles by logging in with:
+### Authentication
+- **POST** `/api/auth/register` - Register with email OTP
+- **POST** `/api/auth/verify-otp` - Verify email OTP
+- **POST** `/api/auth/resend-otp` - Resend OTP code
+- **POST** `/api/auth/login` - Login and receive JWT
+- **POST** `/api/auth/forgot-password` - Request password-reset OTP (generic success message; email only if account exists)
+- **POST** `/api/auth/verify-reset-otp` - Verify reset OTP; returns short-lived `resetToken`
+- **POST** `/api/auth/reset-password` - Set new password with `email`, `resetToken`, and `newPassword`
 
-- **Manager**: Full system access
-- **Baker**: Production and recipe access
-- **Cashier**: POS system access
+### Dashboards (RBAC Protected)
+- **GET** `/api/dashboard/admin` - Admin only
+- **GET** `/api/dashboard/staff` - Staff only
+- **GET** `/api/dashboard/user` - User only
 
-## Testing
+### Files (DAC Protected)
+- **GET** `/api/files` - List accessible files
+- **POST** `/api/files` - Create new file
+- **GET** `/api/files/:id` - View file (owner or public)
+- **DELETE** `/api/files/:id` - Delete file (owner only)
+- **PATCH** `/api/files/:id/visibility` - Toggle visibility (owner only)
+- **GET** `/api/files/logs/denied` - Admin only; recent denied DAC attempts (returns `[]` if the audit table is missing or on error so clients stay stable)
 
-The project includes a comprehensive Playwright test suite with Page Object Model (POM) pattern:
+### User Profile
+- **GET** `/api/users/me` - Get profile
+- **PATCH** `/api/users/me` - Update profile
+- **POST** `/api/users/me/delete/request-otp` - Request deletion OTP
+- **POST** `/api/users/me/delete/confirm` - Confirm account deletion
 
-- **Automatic server startup** - Tests start the dev server automatically
-- **Page Object Model** - Maintainable test structure with reusable page classes
-- **Semantic selectors** - Reliable element selection using `getByRole` and `getByLabel`
-- **Multi-browser support** - Chromium, Firefox, and optional WebKit
+## Roles
 
-See [tests/README.md](tests/README.md) and [documents/setup/PLAYWRIGHT_SETUP.md](documents/setup/PLAYWRIGHT_SETUP.md) for detailed testing documentation.
+| Role  | Description | Dashboard Access |
+|-------|-------------|------------------|
+| Admin | Manager     | Admin dashboard, denied access logs |
+| Staff | Baker       | Staff dashboard, production focus |
+| User  | Cashier     | User dashboard, sales focus |
+
+## DAC Rules
+
+- Each file has an owner (`owner_id`)
+- Owner can view, delete, and toggle visibility
+- Non-owners can only view public files (`is_public = 1`)
+- Access denials are logged to `access_logs` table (when present)
+
+## Frontend shell (authenticated pages)
+
+- **Topbar:** breadcrumb trail (hidden on dashboard home to avoid duplicating the sidebar), hamburger (mobile), and a **dark/light theme** toggle. Username and role are **not** shown in the topbar; **Sign out** lives in the **sidebar footer** only.
+- **Sidebar:** role-based nav, **Settings** as a normal nav item, footer user card (avatar, username, role badge), and **Sign Out**.
+- **Theme:** `localStorage` key `bakesync_theme` (`light` | `dark`); `data-theme="dark"` on `<html>`. Applied early from `frontend/js/config.js` to reduce flash.
+
+## Quick Start
+
+### 1. Database Setup
+
+Run **`database/schema.sql`** or **`database/full_database.sql`** on your MySQL instance (same schema and seeds; `full_database.sql` is the all-in-one script with a short header).
+
+Optional: `database/migrations/` includes one-off scripts (e.g. `widen_otp_code_password_reset.sql` if an older DB still has `otp_code VARCHAR(6)`, rollback helpers for experimental file-storage columns). Apply only what matches your live schema.
+
+### 2. Backend Setup
+
+```bash
+cd backend
+npm install
+```
+
+Create `backend/.env`:
+
+```env
+PORT=8080
+FRONTEND_URL=http://localhost:5500
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=yourpassword
+DB_NAME=defaultdb
+DB_SSL=false
+
+JWT_SECRET=your-secret-key
+RESEND_API_KEY=your-resend-key
+```
+
+Start the server:
+
+```bash
+npm run dev
+```
+
+### 3. Frontend Setup
+
+Serve the `frontend/` folder with any static server:
+
+```bash
+npx serve frontend -l 5500
+```
+
+Open: http://localhost:5500/pages/login.html
+
+## Demo Accounts
+
+| Username       | Password  | Role  |
+|----------------|-----------|-------|
+| manager_maria  | admin123  | Admin |
+| baker_juan     | staff123  | Staff |
+| cashier_ana    | user123   | User  |
 
 ## Documentation
 
-Comprehensive documentation is available in the `documents/` directory:
+- [Technical report](./docs/TECHNICAL_REPORT.md) — Security analysis and reflection questions  
+- [System architecture](./docs/ARCHITECTURE.md) — Stack, diagrams (Mermaid), repository layout  
+- [Database SQL](./docs/DATABASE.md) — Full schema and migration queries in one place  
+- [Frontend guide](./docs/FRONTEND.md) — Pages, `sidebar.js` / `dashboard.js`, theme and navigation  
 
-- **[Setup Guides](documents/setup/)** - Configuration and setup instructions
-- **[Implementation Guides](documents/implementation/)** - Development guides and phase summaries
-- **[Analysis Documents](documents/analysis/)** - Technical analysis and fixes
-- **[Feature Documentation](documents/features/)** - Feature lists and progress tracking
-- **[Gantt Charts](documents/gantts/)** - Project planning and task scheduling
-
-See [documents/README.md](documents/README.md) for complete documentation structure.
-
-## Features Overview
-
-### Inventory Management
-- Track raw materials and finished goods
-- Set minimum stock levels and alerts
-- Bulk edit functionality
-- Expiration date tracking
-- Real-time stock updates
-
-### Recipe Management
-- Create and edit recipes with detailed instructions
-- Ingredient management with quantities and units
-- Cost analysis and pricing
-- Production yield tracking
-- Inventory integration for ingredient availability
-
-### Point of Sale
-- Responsive cart interface
-- Multiple payment methods (Cash, Card, GCash)
-- Real-time inventory updates
-- Transaction history
-- Receipt generation
-
-### Production Planning
-- Batch scheduling and tracking
-- Recipe-based production
-- Inventory consumption tracking
-- Production logs and analytics
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-If you encounter any issues or have questions, please open an issue on GitHub.
-
+Diagrams in `docs/ARCHITECTURE.md` render on GitHub; for local viewing use [mermaid.live](https://mermaid.live) or a Mermaid-capable editor.

@@ -1,0 +1,295 @@
+const express = require('express');
+const authMiddleware = require('../middleware/auth');
+const pool = require('../config/db');
+const { requireRole } = require('../middleware/rbac');
+
+const router = express.Router();
+
+async function logAccess({ userId, fileId, action, result, reason }) {
+    try {
+        await pool.execute(
+            `INSERT INTO access_logs (user_id, file_id, action, result, reason)
+             VALUES (?, ?, ?, ?, ?)`,
+            [userId || null, fileId || null, action, result, reason || null]
+        );
+    } catch (e) {
+        // Audit logging must never break the main request.
+    }
+}
+
+/**
+ * GET /api/files
+ * Get all files accessible to the user (owned + public)
+ */
+router.get('/', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Use DISTINCT to prevent duplicate rows from any JOINs
+        // Sort owned files first, then by created_at descending
+        const [rows] = await pool.execute(
+            `SELECT DISTINCT f.id, f.filename, f.description, f.file_type, f.owner_id, f.is_public, f.created_at,
+                    u.username AS owner_username
+             FROM files f
+             LEFT JOIN users u ON u.id = f.owner_id
+             WHERE f.owner_id = ? OR f.is_public = 1
+             ORDER BY (f.owner_id = ?) DESC, f.created_at DESC`,
+            [userId, userId]
+        );
+
+        const files = rows.map(file => ({
+            id: file.id,
+            filename: file.filename,
+            description: file.description,
+            file_type: file.file_type,
+            owner_id: file.owner_id,
+            owner_username: file.owner_username || `User #${file.owner_id}`,
+            is_public: file.is_public,
+            created_at: file.created_at,
+            isOwner: file.owner_id === userId
+        }));
+
+        res.status(200).json(files);
+    } catch (error) {
+        console.error('[Files] Get files error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/files
+ * Create a new file
+ */
+router.post('/', authMiddleware, async (req, res) => {
+    try {
+        const { filename, description, file_type, is_public } = req.body;
+        const ownerId = req.user.id;
+
+        if (!filename || !file_type) {
+            return res.status(400).json({ error: 'Filename and file type are required' });
+        }
+
+        const validTypes = ['recipe', 'report', 'schedule', 'invoice'];
+        if (!validTypes.includes(file_type)) {
+            return res.status(400).json({ error: 'Invalid file type' });
+        }
+
+        const isPublicValue = is_public ? 1 : 0;
+
+        const [result] = await pool.execute(
+            `INSERT INTO files (filename, description, file_type, owner_id, is_public)
+             VALUES (?, ?, ?, ?, ?)`,
+            [filename, description || null, file_type, ownerId, isPublicValue]
+        );
+
+        res.status(201).json({
+            message: 'File created',
+            fileId: result.insertId
+        });
+    } catch (error) {
+        console.error('[Files] Upload error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * GET /api/files/:id
+ * Get a specific file with DAC enforcement
+ */
+router.get('/:id', authMiddleware, async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const userId = req.user.id;
+
+        const [rows] = await pool.execute(
+            `SELECT f.id, f.filename, f.description, f.file_type, f.owner_id, f.is_public, f.created_at,
+                    u.username AS owner_username
+             FROM files f
+             LEFT JOIN users u ON u.id = f.owner_id
+             WHERE f.id = ?`,
+            [fileId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        const file = rows[0];
+
+        // ── DAC enforcement ──────────────────────────────────────────
+        // Discretionary Access Control: the file owner sets access policy.
+        // The owner field (owner_id) is set at upload time and cannot
+        // be transferred — this is intentional for this prototype.
+        // Production improvement: allow ownership transfer between users.
+        const isAllowed = file.owner_id === userId || file.is_public === 1;
+        if (!isAllowed) {
+            // Log the denial before returning 403 — audit trail for DAC systems
+            await logAccess({
+                userId,
+                fileId,
+                action: 'view',
+                result: 'denied',
+                reason: 'not_owner_private'
+            });
+            return res.status(403).json({ error: 'Access denied: you do not own this file' });
+        }
+
+        // Allowed view (Improvement 6: audit both allowed + denied)
+        await logAccess({
+            userId,
+            fileId,
+            action: 'view',
+            result: 'allowed'
+        });
+
+        res.status(200).json({
+            id: file.id,
+            filename: file.filename,
+            description: file.description,
+            file_type: file.file_type,
+            owner_id: file.owner_id,
+            owner_username: file.owner_username || `User #${file.owner_id}`,
+            is_public: file.is_public,
+            created_at: file.created_at,
+            isOwner: file.owner_id === userId
+        });
+    } catch (error) {
+        console.error('[Files] Get file error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * DELETE /api/files/:id
+ * Delete a file with DAC enforcement (owner only)
+ */
+router.delete('/:id', authMiddleware, async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const userId = req.user.id;
+
+        const [rows] = await pool.execute(
+            'SELECT id, owner_id FROM files WHERE id = ?',
+            [fileId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        const file = rows[0];
+
+        // ── Server-side ownership check ──────────────────────────────
+        // The frontend hides delete/edit buttons for non-owners,
+        // but frontend-only guards are insufficient — any authenticated
+        // user could call this endpoint directly (e.g. via Postman).
+        // All authorization MUST be enforced server-side.
+        if (file.owner_id !== userId) {
+            await logAccess({
+                userId,
+                fileId,
+                action: 'delete',
+                result: 'denied',
+                reason: 'only_owner_can_delete'
+            });
+            return res.status(403).json({ error: 'Access denied: only the file owner can delete' });
+        }
+
+        await pool.execute('DELETE FROM files WHERE id = ?', [fileId]);
+
+        res.status(200).json({ message: 'File deleted' });
+    } catch (error) {
+        console.error('[Files] Delete error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * PATCH /api/files/:id/visibility
+ * Toggle file visibility with DAC enforcement (owner only)
+ */
+router.patch('/:id/visibility', authMiddleware, async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const userId = req.user.id;
+        const { is_public } = req.body;
+
+        if (is_public === undefined || (is_public !== 0 && is_public !== 1)) {
+            return res.status(400).json({ error: 'is_public must be 0 or 1' });
+        }
+
+        const [rows] = await pool.execute(
+            'SELECT id, owner_id FROM files WHERE id = ?',
+            [fileId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        const file = rows[0];
+
+        // DAC enforcement: only owner can change visibility
+        if (file.owner_id !== userId) {
+            await logAccess({
+                userId,
+                fileId,
+                action: 'visibility',
+                result: 'denied',
+                reason: 'only_owner_can_change_visibility'
+            });
+            return res.status(403).json({ error: 'Access denied: only the file owner can change visibility' });
+        }
+
+        await pool.execute(
+            'UPDATE files SET is_public = ? WHERE id = ?',
+            [is_public, fileId]
+        );
+
+        res.status(200).json({
+            message: 'Visibility updated',
+            is_public: is_public
+        });
+    } catch (error) {
+        console.error('[Files] Visibility error:', error && error.message ? error.message : error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * GET /api/files/logs/denied
+ * Admin endpoint: fetch denied DAC decisions
+ */
+router.get('/logs/denied', authMiddleware, requireRole('admin'), async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            `SELECT al.created_at,
+                    al.action,
+                    al.reason,
+                    u.username,
+                    f.filename
+             FROM access_logs al
+             LEFT JOIN users u ON u.id = al.user_id
+             LEFT JOIN files f ON f.id = al.file_id
+             WHERE al.result = 'denied'
+             ORDER BY al.created_at DESC
+             LIMIT 50`
+        );
+
+        res.status(200).json(
+            (rows || []).map((r) => ({
+                time: r.created_at,
+                action: r.action,
+                reason: r.reason,
+                user: r.username || 'Unknown',
+                filename: r.filename || 'Unknown file'
+            }))
+        );
+    } catch (error) {
+        // Missing table, schema drift, or DB errors — return empty list so the UI never breaks mid-demo.
+        console.error('[Files] Denied logs error:', error && error.message ? error.message : error);
+        res.status(200).json([]);
+    }
+});
+
+module.exports = router;

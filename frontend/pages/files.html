@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Manager — BakeSync</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="alternate icon" href="../favicon.svg" />
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar"></aside>
+        <div class="main-content" id="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger" type="button" aria-label="Open sidebar"></button>
+                    <nav class="breadcrumb" id="topbar-breadcrumb" aria-label="breadcrumb"></nav>
+                </div>
+                <div class="topbar-right">
+                    <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="Switch to dark mode" title="Dark mode">
+                        <svg class="theme-toggle-icon theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                        <svg class="theme-toggle-icon theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <main class="page-content" id="page-content">
+                <div class="content-card" style="margin-bottom: 1.25rem;">
+                    <h3 style="margin-bottom: 0.5rem;">Document Manager</h3>
+                    <p style="color: var(--muted-foreground); font-size: 0.875rem;">
+                        Your files and shared documents. DAC rules are enforced when viewing private files.
+                    </p>
+
+                    <div style="display:flex; gap: 0.75rem; align-items:center; justify-content: space-between; flex-wrap: wrap; margin-top: 1rem;">
+                        <div class="filter-tabs" id="files-filter-tabs"></div>
+                        <input
+                            id="files-search"
+                            type="text"
+                            placeholder="Search files..."
+                            style="min-width: 240px;"
+                        />
+                    </div>
+                </div>
+
+                <div id="files-cards"></div>
+
+                <div class="content-card" style="margin-top: 1.25rem;">
+                    <button type="button" class="btn btn-primary btn-full" id="files-upload-toggle">+ Add New Document</button>
+                    <div id="files-upload-panel" class="upload-panel collapsed">
+                        <div class="upload-panel-body">
+                            <div class="upload-row">
+                                <input type="text" id="files-upload-filename" placeholder="Filename (e.g., croissant_recipe.pdf)" />
+                                <select id="files-upload-type">
+                                    <option value="recipe">Recipe</option>
+                                    <option value="report">Report</option>
+                                    <option value="schedule">Schedule</option>
+                                    <option value="invoice">Invoice</option>
+                                </select>
+                            </div>
+
+                            <div class="upload-row" style="margin-top: 0.75rem;">
+                                <textarea id="files-upload-description" rows="2" placeholder="Description (optional)"></textarea>
+                            </div>
+
+                            <div class="upload-row" style="margin-top: 0.75rem;">
+                                <div class="upload-visibility">
+                                    <label class="checkbox-wrapper">
+                                        <input type="radio" name="files-is-public" value="0" checked />
+                                        <span>Private</span>
+                                    </label>
+                                    <label class="checkbox-wrapper">
+                                        <input type="radio" name="files-is-public" value="1" />
+                                        <span>Public</span>
+                                    </label>
+                                </div>
+
+                                <div class="upload-actions">
+                                    <button type="button" class="btn btn-primary" id="files-upload-submit">Upload File</button>
+                                    <button type="button" class="btn btn-ghost" id="files-upload-cancel">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/dashboard.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script>
+        initSidebar();
+        setActiveNavItem();
+        initMobileSidebar();
+        initNavbar();
+        if (typeof renderBreadcrumb === 'function') renderBreadcrumb();
+        initFilesPage();
+    </script>
+</body>
+</html>
