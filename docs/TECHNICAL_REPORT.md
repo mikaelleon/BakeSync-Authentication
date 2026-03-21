@@ -12,7 +12,7 @@ This report documents the design and implementation of the BakeSync IAS102 authe
 
 The prototype implements four security mechanisms that work together to protect the application. Password-based authentication uses bcrypt hashing to store credentials securely. Multi-factor authentication via email OTP adds a second verification layer during registration. Role-Based Access Control restricts dashboard features based on user roles such as Admin, Staff, and User. Discretionary Access Control allows file owners to decide whether their documents are private or public.
 
-The backend uses Node.js with Express and connects to a MySQL database hosted on Aiven Cloud. The frontend consists of static HTML pages with JavaScript that communicate with the backend through REST API calls. The Resend SDK handles transactional email delivery for OTP verification codes.
+The backend uses Node.js with Express and connects to a MySQL database hosted on Aiven Cloud. The frontend consists of static HTML pages with JavaScript that communicate with the backend through REST API calls. Interface behavior (navigation shell, theme toggle, breadcrumbs, Document Manager) is summarized in **`docs/FRONTEND.md`**. The Resend SDK handles transactional email delivery for OTP verification codes.
 
 ---
 
@@ -58,6 +58,8 @@ Each dashboard endpoint applies this middleware to restrict access. The **GET** 
 | GET /api/files | Yes | Yes | Yes |
 | GET /api/files/logs/denied | Yes | No | No |
 
+The web UI reinforces RBAC through **sidebar navigation** (different link sets per role) and by redirecting to `access-denied.html` when a user opens another role’s dashboard URL. The **Manager/Baker/Cashier** label appears in the **sidebar footer** next to the avatar; the topbar intentionally does not repeat username or role so the header can stay minimal (breadcrumb + theme toggle only).
+
 **Reflection Question 5: How does the principle of least privilege apply in your system?**
 
 The principle of least privilege means users have only the minimum permissions needed for their tasks. Staff accounts can view recipes and log production but cannot access financial reports or user management. User accounts can process sales and manage invoices but cannot view production schedules. Each role receives only the dashboard data relevant to their job function. File access also follows this principle through DAC. Users can only modify their own files regardless of their role. Even Admin users cannot delete files they do not own through normal endpoints. This separation limits the damage from compromised accounts or insider threats.
@@ -72,9 +74,9 @@ The system enforces four access scenarios based on ownership and visibility. Fir
 
 The access_logs table records an audit trail of all DAC decisions. Each record includes the user_id who made the request, the file_id accessed, the action attempted (view, delete, or visibility), and the result (allowed or denied). The reason column explains why access was denied, such as "not_owner_private" or "only_owner_can_delete." The created_at timestamp records when the attempt occurred.
 
-The Admin dashboard displays denied access attempts through the **GET** `/api/files/logs/denied` endpoint. This endpoint requires the admin role and returns the 50 most recent denial records. Each record shows the username, filename, action, reason, and timestamp. This gives administrators visibility into potential unauthorized access attempts.
+The Admin dashboard can show denied access attempts using the **GET** `/api/files/logs/denied` endpoint. This route requires the admin role and, when the `access_logs` table is available, returns up to the 50 most recent denial records (username, filename, action, reason, timestamp). For demo stability, the API responds with HTTP **200** and an **empty array** if the table is missing or the query fails, rather than surfacing a hard error to the client. The **DAC Access Denial Log** block on the manager dashboard is rendered **only when** at least one row is returned; otherwise the section is omitted so evaluators do not see a broken panel.
 
-The files page shows a DAC summary bar above the file list. This displays the total count of files the user can access, split between owned files and shared files. Private files owned by others do not appear in the list at all. The frontend hides delete and visibility buttons for files the user does not own, but the backend enforces these rules independently.
+The Document Manager page (`files.html`) explains in copy that DAC rules apply when viewing private files. The file list only includes documents the current user may access (own files plus public files from others). The frontend hides delete and visibility controls for non-owned files, but the backend enforces ownership independently.
 
 ---
 

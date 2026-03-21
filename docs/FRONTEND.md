@@ -1,10 +1,11 @@
 # BakeSync IAS102 Frontend Documentation
 
-This document describes the **static frontend** under `bakesync-ias102/frontend/` (vanilla HTML/CSS/JS). It covers:
-- Every frontend page (`frontend/pages/*.html`)
-- Shared frontend features (`frontend/js/sidebar.js`, `frontend/js/dashboard.js`)
-- Data flow to the backend API (`bakesync-ias102/backend`)
-- URL parameter behavior and DAC/RBAC visuals
+This document describes the **static frontend** under `frontend/` at the repository root (vanilla HTML / CSS / JavaScript). It covers:
+
+- Pages in `frontend/pages/*.html`
+- Shared behavior in `frontend/js/sidebar.js`, `frontend/js/dashboard.js`, and related modules
+- Data flow to the backend API (`backend/`)
+- URL parameters, DAC/RBAC visuals, **theme (dark/light)**, and shell layout
 
 ## Conventions and runtime model
 
@@ -20,7 +21,14 @@ Key helpers are in:
 
 ### API base URL
 The frontend calls the backend through:
-- `frontend/js/config.js` -> `API_BASE`
+- `frontend/js/config.js` → `API_BASE`
+
+### Theme (dark / light mode)
+- **Storage:** `localStorage` key `bakesync_theme` with values `light` or `dark`.
+- **DOM:** Light mode is the default (no attribute). Dark mode sets `data-theme="dark"` on `document.documentElement` (`<html>`).
+- **Flash prevention:** A small IIFE at the top of `config.js` reads `bakesync_theme` and applies `data-theme` before the rest of the page runs, so the first paint matches the saved preference when possible.
+- **Toggle:** `#theme-toggle` in the topbar (moon / sun SVG icons). Logic lives in `dashboard.js`: `applyTheme()`, `syncThemeToggleButton()`, `initThemeToggle()` (bound once per button via `data-theme-bound`). `initNavbar()` calls `initThemeToggle()` on shell pages so any page that already invoked `initNavbar()` wires the control.
+- **Styles:** `frontend/css/style.css` defines base tokens under `:root` and overrides under `:root[data-theme="dark"]` (background, card, border, primary, role-badge tokens, etc.).
 
 ### DAC/RBAC enforcement model
 - **RBAC**: backend enforces access to dashboards and other role-gated APIs. The frontend also redirects on mismatch.
@@ -34,16 +42,17 @@ The frontend calls the backend through:
 
 ### What it renders
 The sidebar is rendered dynamically into the page’s sidebar container using `renderSidebarContent()`:
-- Pages that use the IAS102 dashboard shell: `aside#sidebar`
-- Legacy pages use `aside#app-sidebar` (supported by `getSidebarElements()`)
+
+- Primary shell: `aside#sidebar` (class `sidebar`)
+- `getSidebarElements()` still accepts `aside#app-sidebar` for older markup if it appears anywhere
 
 The sidebar includes:
-- BakeSync logo + wordmark (expanded)
-- Role-colored user card
-- Navigation links filtered by role
-- Footer:
-  - `Settings` link to `profile.html`
-  - `Sign Out` button (calls `logout()`)
+
+- BakeSync logo + wordmark (SVG mark in the logo tile, not emoji)
+- Navigation links filtered by role (Dashboard, Document Manager, type-specific links, **Settings** → `profile.html` as a normal nav row—not a separate floating footer link)
+- **Footer**
+  - User card: avatar (initial), **username**, **role badge** (`renderRoleBadge()` from `dashboard.js` when that script loaded first)
+  - **Sign Out** button only in the footer (`logout()`). There is **no** Sign Out in the topbar.
 
 ### Sticky + collapsible state (desktop)
 The collapsible state is controlled by CSS + `localStorage`:
@@ -67,10 +76,19 @@ For widths `< 768px`:
 - Clicking hamburger opens an overlay sidebar
 - Clicking the overlay closes it
 
+### Breadcrumb trail
+`renderBreadcrumb()` (in `sidebar.js`):
+
+- Maps the current HTML filename to crumb labels (e.g. `files.html` → Dashboard › Document Manager).
+- Appends a crumb when `files.html` has `?type=recipe|report|schedule|invoice`.
+- First crumb links to the role-appropriate dashboard via `getDashboardUrl(role)` and `sessionStorage.role`.
+- On **dashboard home** (`dashboard-*.html`) with only the “Dashboard” crumb, the breadcrumb nav is **cleared** so the label is not duplicated next to the already-active sidebar item.
+
 ### Active nav item highlighting
 `setActiveNavItem()`:
+
 - Compares `window.location.pathname`
-- Also considers the `?type=` URL parameter for the Document Manager routes (`files.html`)
+- Also considers the `?type=` URL parameter for Document Manager routes (`files.html`)
 
 ### Tooltips
 `initTooltips()`:
@@ -80,6 +98,9 @@ For widths `< 768px`:
 ## Toast notifications (`frontend/js/dashboard.js`)
 `showToast(message, type)` appends a fixed-position toast element.
 - Success and error are supported by class (`toast toast-${type}`)
+
+## Page transitions (`frontend/js/dashboard.js`)
+`initPageTransitions()` (invoked at load) intercepts **same-origin** `<a href>` navigation, adds a short **exit** animation class, then assigns `location.href`. Entry animations use `.page-content`, `.auth-card`, `.dashboard-section`, `.kpi-card` in `style.css` (`@keyframes pageFadeIn`, `sectionSlideIn`, `kpiCardIn`, etc.).
 
 ## File modal and DAC access denied modal (`frontend/js/dashboard.js`)
 
@@ -104,15 +125,19 @@ The dashboard HTML pages are lightweight and rely on `dashboard.js` to render th
 - `pages/dashboard-user.html`
 
 Each page contains:
-- `aside.sidebar#sidebar`
-- `header.topbar` (hamburger + username/role placeholders)
-- `main#page-content` where `dashboard.js` renders the UI
 
-Each page calls on load:
+- `aside.sidebar#sidebar`
+- `header.topbar`: `topbar-left` (hamburger + `#topbar-breadcrumb`), `topbar-right` (**theme toggle** `#theme-toggle` only)
+- `main#page-content` where `dashboard.js` renders the main dashboard body
+
+Each page calls on load (typical order):
+
 - `initSidebar()`
 - `setActiveNavItem()`
 - `initMobileSidebar()`
-- the role loader: `loadAdminDashboard()`, `loadStaffDashboard()`, or `loadUserDashboard()`
+- `initNavbar()` (legacy navbar IDs if present + **theme toggle**)
+- `renderBreadcrumb()` when available
+- Role loader: `loadAdminDashboard()`, `loadStaffDashboard()`, or `loadUserDashboard()`
 
 ### Role guard
 `loadAdminDashboard()`, `loadStaffDashboard()`, `loadUserDashboard()`:
@@ -121,7 +146,9 @@ Each page calls on load:
 
 ### Greeting and date
 `renderHeaderBlock(role)` uses:
+
 - `getGreeting()` (time-based greeting)
+- **Username only** in the headline (e.g. “Good morning, manager_maria.”)—role is shown in the sidebar footer, not repeated in the greeting
 - `formatDateLong()` (long date formatting)
 
 ### KPI row
@@ -129,9 +156,11 @@ KPI cards are generated by `renderKpiRow(role, data.stats)`.
 
 ### Role-specific panels
 `renderRoleDashboardContent(role)` renders after the Document Manager widget:
+
 - Admin:
-  - Recent Activity feed from `GET /api/dashboard/admin`
-  - Rendered by `renderActivityFeed()`
+  - Recent Activity feed from `GET /api/dashboard/admin` (`renderActivityFeed()`). Rows use a **left border** colored by uploader role instead of repeating full role pills; backend deduplicates by file id where needed.
+  - **DAC Access Denial Log** from `GET /api/files/logs/denied` only when the response is a **non-empty** array; otherwise no panel (avoids empty or error states in demos).
+  - No in-app **RBAC Information** collapsible card—role explanation belongs in the written technical report.
 - Staff:
   - Production schedule table from `GET /api/dashboard/staff`
   - Rendered by `renderProductionScheduleTable()`
@@ -150,10 +179,12 @@ Both use the same backend endpoint:
 
 ### Widget in dashboards
 `renderDocumentManagerWidget(role, containerEl)`:
-- Fetches `GET /api/files` once on dashboard load
+
+- Fetches `GET /api/files` **once** per render; results are **deduplicated by file `id`** before display (guards duplicate rows or double render).
 - Filters locally by tab (`All`, `Recipes`, `Reports`, `Schedules`, `Invoices`)
-- Shows latest 5 items in the widget
-- Provides a collapsed/inline upload panel triggered by the widget CTA button
+- Shows up to **5** items per active tab
+- **Header:** title + subtitle + tab strip only—no duplicate “View all” / “Add” buttons in the widget (those actions live in the page-level quick actions and `files.html`)
+- **Upload:** use **+ New Document** / role equivalent and `files.html?action=upload`—the dashboard widget does not embed the old inline upload panel
 
 Widget tabs:
 - Built by `renderFilterTabs()`
@@ -163,12 +194,10 @@ Widget tabs:
   - user: `invoice`
 
 Widget file cards:
-- include View button
-- include owner-only actions:
-  - Toggle visibility (`PATCH /api/files/:id/visibility`)
-  - Delete (`DELETE /api/files/:id`) with `confirm()`
-- DAC overlays:
-  - For private non-owners: shows an "Access restricted" overlay
+
+- File-type glyph uses a **single Lucide-style `file-text` SVG** inside a colored wrapper class (`widgetFileTypeIcon()`), not per-type emoji
+- View button; owner-only Toggle visibility (`PATCH /api/files/:id/visibility`) and Delete (`DELETE /api/files/:id`) with inline confirm UI
+- DAC overlays for private non-owned vs owner-private states as before
 
 ### Full Document Manager page (`pages/files.html`)
 The full page uses `initFilesPage()` from `dashboard.js`.
@@ -316,15 +345,9 @@ Purpose:
 - Admin (Manager) dashboard.
 
 How content is built:
-- Static HTML contains the shell and placeholders
-- `loadAdminDashboard()` in `dashboard.js`:
-  - Guards against wrong role
-  - Calls `GET /api/dashboard/admin`
-  - Renders:
-    - KPI row from `data.stats`
-    - Document Manager widget
-    - Recent Activity feed (admin only)
-    - Collapsible RBAC info card
+
+- Static HTML contains the shell (`#page-content` is filled by JS)
+- `loadAdminDashboard()` in `dashboard.js` guards role, then `renderRoleDashboardContent('admin')` loads `GET /api/dashboard/admin` and renders KPI row, onboarding banner when stats are all zero, Document Manager widget, Recent Activity, and conditionally the DAC denial log—not an RBAC explainer card
 
 ## `frontend/pages/dashboard-staff.html`
 Purpose:
@@ -390,7 +413,8 @@ JavaScript (`profile.js`):
 
 ## Legacy UI pages (stubs / placeholders)
 
-These pages keep the older `app-shell` layout and show UI elements, but they explicitly note that backend endpoints may not be wired yet:
+These pages use the **same** `app-layout` shell as the dashboards (`aside#sidebar`, topbar with breadcrumb + theme toggle, `main.page-content`) and a **Coming soon** style placeholder. Backend modules for inventory, POS, etc. are not wired in IAS102:
+
 - `frontend/pages/inventory.html`
 - `frontend/pages/recipes.html`
 - `frontend/pages/pos.html`
@@ -400,23 +424,24 @@ These pages keep the older `app-shell` layout and show UI elements, but they exp
 - `frontend/pages/financials.html`
 - `frontend/pages/team.html`
 
-They primarily serve as navigation targets so the sidebar matches the original dashboard navigation structure.
+They exist so sidebar navigation demonstrates the full ERP-style structure while the course prototype focuses on auth, RBAC, DAC, and Document Manager.
 
 ## CSS and UI patterns (where to look)
 
 - Shared styling: `frontend/css/style.css`
-  - Sidebar styles: `.sidebar`, `.sidebar.collapsed`, tooltip styles, mobile overlay
-  - Document Manager styles: `.file-card`, `.upload-panel`, filter tab styling, toast styles
+  - Sidebar: `.sidebar`, `.sidebar.collapsed`, tooltips, mobile overlay, `.sidebar-signout`, `.sidebar-user-role`
+  - Topbar: `.topbar`, `.breadcrumb`, `.theme-toggle` / `.theme-icon-moon` / `.theme-icon-sun`
+  - Dark theme: `:root[data-theme="dark"]` token overrides
+  - Document Manager: `.file-card`, `.upload-panel`, filter tabs, toasts, KPI / activity helpers
 - Shared JS:
   - `frontend/js/sidebar.js` - sidebar behavior
   - `frontend/js/dashboard.js` - dashboards + Document Manager (widget + full page init)
 
 ## Notes for developers
 
-1. **Avoid adding new endpoints** for file widget filtering:
-   - the widget and files page filter locally from a single `GET /api/files` response
-2. **DAC is enforced by backend**:
-   - UI overlays/modals are display logic for backend enforcement, not the source of truth.
-3. **URL params are part of the UI contract**:
-   - dashboards' primary CTA must work by routing to `files.html?action=upload` (and optionally `type=...`).
+1. **Avoid adding new endpoints** for file widget filtering: the widget and `files.html` filter locally from a single `GET /api/files` response.
+2. **DAC is enforced by the backend**: UI overlays and modals reflect server decisions; they are not the source of truth.
+3. **URL params are part of the UI contract**: dashboard primary CTAs route to `files.html?action=upload` (and optional `type=...`).
+4. **Quick actions** on dashboards are **two links** (primary upload + secondary list)—no stub “system overview” or similar third buttons.
+5. **Shell consistency**: authenticated pages should include `config.js` (for early theme + `API_BASE`), then `api.js`, then `dashboard.js` before `sidebar.js` if the sidebar footer needs `renderRoleBadge()`.
 

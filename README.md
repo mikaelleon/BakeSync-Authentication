@@ -28,9 +28,11 @@ BakeSync/
 │   └── css/           # Stylesheets
 ├── database/          # SQL schema and migrations
 │   ├── schema.sql     # Main database schema
-│   └── migrations/    # Database migrations
+│   └── migrations/    # Incremental SQL (e.g. rollback helpers)
 └── docs/              # Documentation
-    └── TECHNICAL_REPORT.md
+    ├── ARCHITECTURE.md    # Stack, Mermaid diagrams, file layout
+    ├── FRONTEND.md        # Pages, JS modules, UI behavior
+    └── TECHNICAL_REPORT.md # IAS102 security analysis
 ```
 
 ## Tech Stack
@@ -62,6 +64,7 @@ BakeSync/
 - **GET** `/api/files/:id` - View file (owner or public)
 - **DELETE** `/api/files/:id` - Delete file (owner only)
 - **PATCH** `/api/files/:id/visibility` - Toggle visibility (owner only)
+- **GET** `/api/files/logs/denied` - Admin only; recent denied DAC attempts (returns `[]` if the audit table is missing or on error so clients stay stable)
 
 ### User Profile
 - **GET** `/api/users/me` - Get profile
@@ -82,13 +85,21 @@ BakeSync/
 - Each file has an owner (`owner_id`)
 - Owner can view, delete, and toggle visibility
 - Non-owners can only view public files (`is_public = 1`)
-- Access denials are logged to `access_logs` table
+- Access denials are logged to `access_logs` table (when present)
+
+## Frontend shell (authenticated pages)
+
+- **Topbar:** breadcrumb trail (hidden on dashboard home to avoid duplicating the sidebar), hamburger (mobile), and a **dark/light theme** toggle. Username and role are **not** shown in the topbar; **Sign out** lives in the **sidebar footer** only.
+- **Sidebar:** role-based nav, **Settings** as a normal nav item, footer user card (avatar, username, role badge), and **Sign Out**.
+- **Theme:** `localStorage` key `bakesync_theme` (`light` | `dark`); `data-theme="dark"` on `<html>`. Applied early from `frontend/js/config.js` to reduce flash.
 
 ## Quick Start
 
 ### 1. Database Setup
 
 Run `database/schema.sql` on your MySQL instance.
+
+Optional: `database/migrations/` may contain one-off scripts (for example, rolling back optional columns if you experimented with file-storage fields). Apply only what matches your live schema.
 
 ### 2. Backend Setup
 
@@ -140,4 +151,8 @@ Open: http://localhost:5500/pages/login.html
 
 ## Documentation
 
-- [Technical Report](./docs/TECHNICAL_REPORT.md) - Security analysis and reflection questions
+- [Technical report](./docs/TECHNICAL_REPORT.md) — Security analysis and reflection questions  
+- [System architecture](./docs/ARCHITECTURE.md) — Stack, diagrams (Mermaid), repository layout  
+- [Frontend guide](./docs/FRONTEND.md) — Pages, `sidebar.js` / `dashboard.js`, theme and navigation  
+
+Diagrams in `docs/ARCHITECTURE.md` render on GitHub; for local viewing use [mermaid.live](https://mermaid.live) or a Mermaid-capable editor.

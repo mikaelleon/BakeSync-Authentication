@@ -11,6 +11,18 @@
 | Email    | Resend SDK              |
 | Auth     | JWT + bcrypt            |
 
+## Frontend UX (IAS102 shell)
+
+Authenticated pages share **`frontend/css/style.css`** and a common layout:
+
+| Area | Contents |
+|------|-----------|
+| **Topbar** | Mobile hamburger, breadcrumb (`#topbar-breadcrumb`, populated by `renderBreadcrumb()` in `sidebar.js`), **theme toggle** only (`#theme-toggle`). No username, role, or sign-out in the topbar. |
+| **Sidebar** | `sidebar.js` renders into `#sidebar`: logo, role-filtered nav, **Settings** link in the nav list, footer user card (avatar, username, role badge), **Sign Out**. |
+| **Theme** | `config.js` restores `bakesync_theme` before paint; `dashboard.js` binds the toggle (`applyTheme` / `initThemeToggle`, invoked from `initNavbar()`). Dark palette uses `:root[data-theme="dark"]` in `style.css`. |
+
+See **[FRONTEND.md](./FRONTEND.md)** for page-by-page behavior and API mapping.
+
 ## System Architecture Diagram
 
 ```mermaid
@@ -203,8 +215,9 @@ BakeSync/
 │       └── style.css
 ├── database/
 │   ├── schema.sql              # Main schema + seed data
-│   └── migrations/
+│   └── migrations/             # Optional SQL (e.g. rollback_* helpers)
 └── docs/
     ├── ARCHITECTURE.md         # This file
+    ├── FRONTEND.md             # UI pages and JS modules
     └── TECHNICAL_REPORT.md     # Security analysis
 ```
