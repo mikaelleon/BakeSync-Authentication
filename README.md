@@ -54,7 +54,7 @@ BakeSync/
 - **POST** `/api/auth/verify-otp` - Verify email OTP
 - **POST** `/api/auth/resend-otp` - Resend OTP code
 - **POST** `/api/auth/login` - Login and receive JWT
-- **POST** `/api/auth/forgot-password` - Request password-reset OTP (generic success message; email only if account exists)
+- **POST** `/api/auth/forgot-password` - Request password-reset OTP (requires a **verified** user with that email; **404** if unknown email, **403** if unverified)
 - **POST** `/api/auth/verify-reset-otp` - Verify reset OTP; returns short-lived `resetToken`
 - **POST** `/api/auth/reset-password` - Set new password with `email`, `resetToken`, and `newPassword`
 
