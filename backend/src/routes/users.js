@@ -5,13 +5,9 @@ const authMiddleware = require('../middleware/auth');
 const pool = require('../config/db');
 const { generateOTP, getOTPExpiry } = require('../utils/otp');
 const { sendAccountDeletionOTPEmail } = require('../utils/mailer');
+const { isValidEmail } = require('../utils/email');
 
 const router = express.Router();
-
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
 
 /**
  * GET /api/users/me

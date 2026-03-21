@@ -29,7 +29,7 @@ See **[FRONTEND.md](./FRONTEND.md)** for page-by-page behavior and API mapping.
 graph TB
   subgraph Client["Browser (Render Static Site)"]
     FE["HTML/CSS/JS<br/>frontend/pages/*.html"]
-    JS["frontend/js/<br/>api.js, auth.js, dashboard.js<br/>sidebar.js, files.js, profile.js"]
+    JS["frontend/js/<br/>api.js, auth.js, dashboard.js<br/>sidebar.js, profile.js"]
   end
 
   subgraph Backend["Render Web Service (Node.js + Express)"]
@@ -204,6 +204,7 @@ BakeSync/
 │   │   │   ├── files.js        # DAC file management
 │   │   │   └── users.js        # Profile, deletion
 │   │   └── utils/
+│   │       ├── email.js        # Email normalize / validate
 │   │       ├── otp.js          # OTP generation
 │   │       └── mailer.js       # Resend email
 │   ├── index.js                # Express app entry
@@ -222,8 +223,7 @@ BakeSync/
 │   │   ├── api.js              # API request wrapper
 │   │   ├── auth.js             # Login, register, OTP, forgot-password UI
 │   │   ├── config.js           # API base URL
-│   │   ├── dashboard.js        # Dashboard loaders
-│   │   ├── files.js            # File management
+│   │   ├── dashboard.js        # Dashboard + file manager UI
 │   │   ├── profile.js          # Profile handlers
 │   │   └── sidebar.js          # Navigation
 │   └── css/

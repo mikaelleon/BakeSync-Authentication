@@ -5,16 +5,11 @@ const crypto = require('crypto');
 const pool = require('../config/db');
 const { generateOTP, getOTPExpiry } = require('../utils/otp');
 const { sendOTPEmail, sendPasswordResetOTPEmail, sendMFAOTPEmail } = require('../utils/mailer');
+const { normalizeEmailInput, isValidEmail } = require('../utils/email');
 
 const router = express.Router();
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_LOCK_MINUTES = 15;
-
-/** Trim + lowercase for consistent email lookups (password reset). */
-function normalizeEmailInput(email) {
-    if (typeof email !== 'string') return '';
-    return email.trim().toLowerCase();
-}
 
 /**
  * POST /api/auth/register
@@ -40,8 +35,7 @@ router.post('/register', async (req, res) => {
         }
 
         // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        if (!isValidEmail(email)) {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
@@ -234,8 +228,7 @@ router.post('/resend-verification', async (req, res) => {
             return res.status(400).json({ error: 'Email is required' });
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(normalizedEmail)) {
+        if (!isValidEmail(normalizedEmail)) {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
@@ -750,8 +743,7 @@ router.post('/forgot-password', async (req, res) => {
             return res.status(400).json({ error: 'Email is required' });
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(normalizedEmail)) {
+        if (!isValidEmail(normalizedEmail)) {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
