@@ -279,6 +279,11 @@ function renderSidebarContent() {
             <div class="sidebar-user-name">${username}</div>
           </div>
         </div>
+
+        <button class="sidebar-signout" type="button" id="sidebar-signout-btn">
+          <span class="sidebar-signout-icon" aria-hidden="true">${iconSvg('log-out')}</span>
+          <span class="sidebar-signout-text">Sign Out</span>
+        </button>
       </div>
     </div>
   `;
@@ -287,6 +292,9 @@ function renderSidebarContent() {
   if (toggleBtn) {
     toggleBtn.addEventListener('click', toggleSidebar);
   }
+
+  const signoutBtn = document.getElementById('sidebar-signout-btn');
+  if (signoutBtn) signoutBtn.addEventListener('click', logout);
 }
 
 function initTooltips() {
