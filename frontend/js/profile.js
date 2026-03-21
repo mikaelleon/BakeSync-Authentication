@@ -120,87 +120,47 @@ async function handleProfileSave(event) {
     }
 }
 
-function initDeleteAccountFlow() {
-    const showBtn = document.getElementById('delete-show-btn');
-    const cancelBtn = document.getElementById('delete-cancel-btn');
-    const requestOTPBtn = document.getElementById('delete-request-otp-btn');
-    const confirmBtn = document.getElementById('delete-confirm-btn');
-    const backBtn = document.getElementById('delete-back-btn');
+async function requestDeleteOTP() {
+    const btn = document.getElementById('request-delete-otp-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    try {
+        await apiPost('/api/users/me/delete/request-otp', {});
+        showSuccess('Deletion OTP sent. Check your email.');
+    } catch (e) {
+        showError(e.message || 'Failed to send deletion OTP');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send deletion OTP to my email';
+    }
+}
 
-    const step1 = document.getElementById('delete-step-1');
-    const step2 = document.getElementById('delete-step-2');
-    const step3 = document.getElementById('delete-step-3');
+async function confirmDelete(event) {
+    event.preventDefault();
 
-    function showStep(n) {
-        if (step1) step1.style.display = n === 1 ? '' : 'none';
-        if (step2) step2.style.display = n === 2 ? '' : 'none';
-        if (step3) step3.style.display = n === 3 ? '' : 'none';
+    const btn = document.getElementById('confirm-delete-btn');
+    const otp = document.getElementById('delete-otp').value.trim();
+
+    if (!/^\d{6}$/.test(otp)) {
+        showError('Please enter a valid 6-digit OTP.');
+        return;
     }
 
-    showBtn?.addEventListener('click', () => showStep(2));
+    const ok = confirm('This will permanently delete your account. Continue?');
+    if (!ok) return;
 
-    cancelBtn?.addEventListener('click', () => showStep(1));
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
 
-    requestOTPBtn?.addEventListener('click', async () => {
-        requestOTPBtn.disabled = true;
-        requestOTPBtn.textContent = 'Sending...';
-
-        try {
-            await apiPost('/api/users/me/delete/request-otp', {});
-            showStep(3);
-            document.getElementById('delete-otp-input')?.focus();
-            if (typeof showToast === 'function') {
-                showToast('Deletion code sent to your email.', 'success');
-            } else {
-                showSuccess('Deletion code sent to your email.');
-            }
-        } catch (err) {
-            if (typeof showToast === 'function') {
-                showToast(err.message || 'Failed to send code.', 'error');
-            } else {
-                showError(err.message || 'Failed to send code.');
-            }
-        } finally {
-            requestOTPBtn.disabled = false;
-            requestOTPBtn.textContent = 'Yes, send me a deletion code';
-        }
-    });
-
-    backBtn?.addEventListener('click', () => {
-        showStep(1);
-        const otpInput = document.getElementById('delete-otp-input');
-        if (otpInput) otpInput.value = '';
-    });
-
-    confirmBtn?.addEventListener('click', async () => {
-        const otp = document.getElementById('delete-otp-input')?.value?.trim();
-
-        if (!otp || otp.length !== 6) {
-            if (typeof showToast === 'function') {
-                showToast('Enter the 6-digit code from your email.', 'error');
-            } else {
-                showError('Enter the 6-digit code from your email.');
-            }
-            return;
-        }
-
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Deleting...';
-
-        try {
-            await apiPost('/api/users/me/delete/confirm', { otp });
-            sessionStorage.clear();
-            window.location.href = 'login.html?deleted=true';
-        } catch (err) {
-            if (typeof showToast === 'function') {
-                showToast(err.message || 'Deletion failed.', 'error');
-            } else {
-                showError(err.message || 'Deletion failed.');
-            }
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Delete my account permanently';
-        }
-    });
+    try {
+        await apiPost('/api/users/me/delete/confirm', { otp });
+        sessionStorage.clear();
+        window.location.href = 'login.html';
+    } catch (e) {
+        showError(e.message || 'Failed to delete account');
+        btn.disabled = false;
+        btn.textContent = 'Delete my account';
+    }
 }
 
 (async function initProfilePage() {
@@ -216,7 +176,16 @@ function initDeleteAccountFlow() {
     const profileForm = document.getElementById('profile-form');
     if (profileForm) profileForm.addEventListener('submit', handleProfileSave);
 
-    initDeleteAccountFlow();
+    const requestBtn = document.getElementById('request-delete-otp-btn');
+    if (requestBtn) requestBtn.addEventListener('click', requestDeleteOTP);
+
+    const deleteForm = document.getElementById('delete-form');
+    if (deleteForm) deleteForm.addEventListener('submit', confirmDelete);
+
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 
     // Collapsible password change section toggle
     const passwordToggle = document.getElementById('password-card-toggle');
@@ -227,7 +196,25 @@ function initDeleteAccountFlow() {
         if (!passwordBody) return;
         const isOpen = passwordBody.style.display !== 'none';
         passwordBody.style.display = isOpen ? 'none' : 'block';
-        if (passwordChevron) passwordChevron.textContent = isOpen ? '▼' : '▲';
+        if (passwordChevron) {
+            passwordChevron.setAttribute('data-lucide', isOpen ? 'chevron-down' : 'chevron-up');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    });
+
+    // Collapsible delete account section toggle
+    const deleteToggle = document.getElementById('delete-card-toggle');
+    const deleteBody = document.getElementById('delete-form-body');
+    const deleteChevron = document.getElementById('delete-chevron');
+
+    deleteToggle?.addEventListener('click', () => {
+        if (!deleteBody) return;
+        const isOpen = deleteBody.style.display !== 'none';
+        deleteBody.style.display = isOpen ? 'none' : 'block';
+        if (deleteChevron) {
+            deleteChevron.setAttribute('data-lucide', isOpen ? 'chevron-down' : 'chevron-up');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
     });
 
     // Password change submit
@@ -300,7 +287,10 @@ function initDeleteAccountFlow() {
             showToast('Password changed successfully.', 'success');
 
             if (passwordBody) passwordBody.style.display = 'none';
-            if (passwordChevron) passwordChevron.textContent = '▼';
+            if (passwordChevron) {
+                passwordChevron.setAttribute('data-lucide', 'chevron-down');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
         } catch (e) {
             showToast('Network error. Password not changed.', 'error');
         } finally {

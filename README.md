@@ -88,7 +88,7 @@ BakeSync/
 
 ### 1. Database Setup
 
-Run `database/schema.sql` on your MySQL instance. If the database already existed before file uploads were added, also run `database/migrations/001_files_storage.sql` once.
+Run `database/schema.sql` on your MySQL instance.
 
 ### 2. Backend Setup
 
@@ -112,11 +112,6 @@ DB_SSL=false
 
 JWT_SECRET=your-secret-key
 RESEND_API_KEY=your-resend-key
-
-# Cloudinary (Document Manager — real file uploads, up to 250 MB)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 Start the server:

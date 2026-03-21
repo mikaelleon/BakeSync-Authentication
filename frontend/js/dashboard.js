@@ -214,8 +214,8 @@ async function loadFilesPreview(limit = 5) {
     if (countEl) countEl.textContent = 'Loading...';
 
     try {
-        const files = normalizeFilesListResponse(await apiGet('/api/files'));
-        const safeFiles = files;
+        const files = await apiGet('/api/files');
+        const safeFiles = Array.isArray(files) ? files : [];
 
         if (countEl) countEl.textContent = `${safeFiles.length} file(s) accessible`;
 
@@ -235,9 +235,7 @@ async function loadFilesPreview(limit = 5) {
         shown.forEach(file => {
             const filename = escapeHtml(file.filename || '');
             const type = escapeHtml(file.file_type || '');
-            const ownerDisplay = file.isOwner
-                ? 'You'
-                : escapeHtml(file.owner_username || `User #${file.owner_id ?? '?'}`);
+            const ownerLabel = file.isOwner ? 'You' : (file.owner_username || `User #${file.owner_id ?? '?'}`);
             const visibility = file.is_public ? 'Public' : 'Private';
 
             const li = document.createElement('li');
@@ -246,7 +244,7 @@ async function loadFilesPreview(limit = 5) {
                     ${filename}
                     <span class="badge" style="margin-left: 0.5rem;">${type}</span>
                     <span style="display:block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--muted-foreground);">
-                        Owner: ${ownerDisplay}
+                        Owner: ${escapeHtml(ownerLabel)}
                     </span>
                 </span>
                 <span class="time">${visibility}</span>
@@ -291,8 +289,6 @@ function icon(name, className = '') {
         truck: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`,
         'dollar-sign': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
         rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>`,
-        globe: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
-        'upload-cloud': `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>`,
     };
     const svg = iconMap[name] || iconMap['file-text'];
     if (!className) return svg;
@@ -389,9 +385,8 @@ function formatDateLong(dateString) {
 }
 
 function getRoleLine(role) {
-    if (role === 'admin') return 'Here is your full system overview.';
-    if (role === 'staff') return 'Here is your production and recipe summary.';
-    return 'Here is your shift and transaction summary.';
+    // Removed: subtitle lines add no information
+    return '';
 }
 
 function roleDefaultDocumentTab(role) {
@@ -435,59 +430,6 @@ function dedupeFilesById(files) {
         if (!map.has(k)) map.set(k, f);
     }
     return [...map.values()];
-}
-
-/** Supports `{ files: [...] }` or a legacy raw array. */
-function normalizeFilesListResponse(data) {
-    const raw = Array.isArray(data) ? data : data && Array.isArray(data.files) ? data.files : [];
-    return dedupeFilesById(raw);
-}
-
-function deduplicateFiles(files) {
-    return dedupeFilesById(Array.isArray(files) ? files : []);
-}
-
-function formatFileSizeKb(kb) {
-    if (kb == null || Number.isNaN(Number(kb)) || Number(kb) <= 0) return '';
-    const n = Number(kb);
-    if (n < 1024) return `${Math.round(n)} KB`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} MB`;
-    return `${(n / (1024 * 1024)).toFixed(1)} GB`;
-}
-
-function fileOwnerLabelHtml(file) {
-    const own = file.isOwner === 1 || file.isOwner === true;
-    if (own) return '<span class="file-owner-you">You</span>';
-    const name =
-        file.owner_username ||
-        (file.owner_id != null ? `User #${file.owner_id}` : 'Unknown');
-    return `<span class="file-owner-other">${escapeHtml(name)}</span>`;
-}
-
-function fileSizeLabelHtml(file) {
-    const s = formatFileSizeKb(file.file_size_kb);
-    return s ? `<span class="file-size-label">${escapeHtml(s)}</span>` : '';
-}
-
-function visibilityPillHtml(isPublic) {
-    return isPublic
-        ? '<span class="badge-visibility badge-visibility-public">Public</span>'
-        : '<span class="badge-visibility badge-visibility-private">Private</span>';
-}
-
-function refreshFilesDacSummary(allFiles) {
-    const el = document.getElementById('files-dac-summary');
-    if (!el) return;
-    const list = Array.isArray(allFiles) ? allFiles : [];
-    const mine = list.filter((f) => f.isOwner === 1 || f.isOwner === true).length;
-    const other = list.length - mine;
-    el.innerHTML = `
-      <div class="files-dac-summary-inner">
-        <span><strong>${mine}</strong> owned by you</span>
-        <span class="dac-sep" aria-hidden="true">·</span>
-        <span><strong>${other}</strong> from others (shared / public)</span>
-      </div>
-    `;
 }
 
 function ensureFileModal() {
@@ -565,38 +507,7 @@ async function openFileModal(fileId) {
     try {
         const file = await apiGet(`/api/files/${fileId}`);
 
-        const viewableMime = [
-            'application/pdf',
-            'image/jpeg',
-            'image/png',
-            'image/webp',
-            'image/gif',
-            'text/plain',
-            'text/csv'
-        ];
-
-        if (file.file_url) {
-            if (file.mime_type && viewableMime.includes(file.mime_type)) {
-                window.open(file.file_url, '_blank', 'noopener,noreferrer');
-                closeFileModal();
-                return;
-            }
-            const a = document.createElement('a');
-            a.href = file.file_url;
-            a.download = file.original_name || file.filename || 'download';
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            closeFileModal();
-            return;
-        }
-
-        const own = file.isOwner === 1 || file.isOwner === true;
-        const ownerHtml = own
-            ? 'You'
-            : escapeHtml(file.owner_username || (file.owner_id != null ? `User #${file.owner_id}` : 'Unknown'));
+        const ownerLabel = file.isOwner ? 'You' : (file.owner_username || `User #${file.owner_id}`);
         const visibility = file.is_public ? 'Public' : 'Private';
 
         title.textContent = file.filename || 'File Details';
@@ -604,7 +515,7 @@ async function openFileModal(fileId) {
           <p style="margin-bottom: 0.75rem; font-size: 0.875rem;">
             <strong>${escapeHtml(visibility)}</strong>
             <span style="color: var(--muted-foreground); font-size: 0.8125rem; margin-left: 0.5rem;">
-              Owner: ${ownerHtml}
+              Owner: ${escapeHtml(ownerLabel)}
             </span>
           </p>
           <p style="margin-bottom: 0.75rem; color: var(--muted-foreground); font-size: 0.875rem;">
@@ -612,9 +523,6 @@ async function openFileModal(fileId) {
           </p>
           <p style="margin-bottom: 0.75rem; color: var(--foreground); font-size: 0.875rem;">
             ${escapeHtml(file.description || 'No description provided.')}
-          </p>
-          <p style="font-size: 0.8125rem; color: var(--muted-foreground);">
-            No file attachment on record — metadata only.
           </p>
         `;
     } catch (err) {
@@ -679,8 +587,8 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
     const listEl = containerEl.querySelector('#widget-file-list');
     const tabsEl = containerEl.querySelector('#widget-filter-tabs');
 
-    // Local cache: API called once; normalize `{ files }` + dedupe by id.
-    const allFiles = normalizeFilesListResponse(await apiGet(apiFilesEndpoint));
+    // Local cache: API called once; dedupe by id (guards duplicate rows / double render).
+    const allFiles = dedupeFilesById(await apiGet(apiFilesEndpoint).then((x) => (Array.isArray(x) ? x : [])));
     // Improvement 12: own files first, then public files from others (both sorted by created_at desc).
     const myFiles = allFiles
         .filter((f) => !!f.isOwner)
@@ -740,23 +648,13 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                 const typeKey = type;
                 const isOwner = !!file.isOwner;
                 const isPublic = file.is_public === 1 || file.is_public === true;
+                const visibilityLabel = isPublic ? 'Public' : 'Private';
+                const ownerLabel = isOwner ? 'You' : (file.owner_username || `User #${file.owner_id}`);
                 const dateTitle = file.created_at ? new Date(file.created_at).toLocaleString() : '';
                 const dateLabel = file.created_at ? timeAgo(file.created_at) : '—';
                 const lockOverlay = !isPublic && !isOwner ? `<div class="file-card-locked" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Access restricted</div>` : '';
                 const lockOwnerMuted = !isPublic && isOwner ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>` : '';
 
-                const visibilityBadgeClass = isPublic ? 'public' : 'private';
-                const ownerIcons = isOwner
-                    ? `
-                  <button type="button" class="btn-icon toggle-visibility-btn" data-toggle-visibility="${escapeHtml(String(file.id))}"
-                    title="${isPublic ? 'Make private' : 'Make public'}" aria-label="Toggle visibility">
-                    ${isPublic ? icon('globe') : icon('lock')}
-                  </button>
-                  <button type="button" class="btn-icon btn-icon-danger delete-btn" data-delete-file="${escapeHtml(String(file.id))}"
-                    title="Delete file" aria-label="Delete file">
-                    ${icon('trash')}
-                  </button>`
-                    : '';
                 return `
                   <div class="file-card ${String(file.id) === String(lastVisibilityUpdatedId) ? 'card-updated' : ''}">
                     <div class="file-card-icon">
@@ -765,16 +663,16 @@ async function renderDocumentManagerWidget(role, containerEl, apiFilesEndpoint =
                     <div class="file-card-body">
                       <div class="file-card-name">${escapeHtml(file.filename || '')}</div>
                       <div class="file-card-meta">
-                        <span class="file-type-badge ${escapeHtml(visibilityBadgeClass)}">${escapeHtml(typeKey)}</span>
-                        ${fileOwnerLabelHtml(file)}
-                        ${visibilityPillHtml(isPublic)}
-                        ${fileSizeLabelHtml(file)}
+                        <span class="file-type-badge ${escapeHtml(typeKey)}">${escapeHtml(typeKey)}</span>
+                        <span class="visibility-badge ${isPublic ? 'public' : 'private'}">${escapeHtml(visibilityLabel)}</span>
+                        <span class="file-owner">${escapeHtml(ownerLabel)}</span>
                         <span class="file-date" ${dateTitle ? `title="${escapeHtml(dateTitle)}"` : ''}>${escapeHtml(dateLabel)}</span>
                       </div>
                     </div>
                     <div class="file-card-actions">
-                      ${ownerIcons}
                       <button class="btn btn-ghost btn-sm" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
+                      ${isOwner ? `<button class="btn btn-ghost btn-sm" type="button" data-toggle-visibility="${escapeHtml(String(file.id))}">${isPublic ? 'Make Private' : 'Make Public'}</button>` : ''}
+                      ${isOwner ? `<button class="btn btn-ghost btn-sm btn-danger" type="button" data-delete-file="${escapeHtml(String(file.id))}">Delete</button>` : ''}
                     </div>
 
                     ${lockOverlay}
@@ -1470,6 +1368,8 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
             const typeKey = file.file_type;
             const isOwner = !!file.isOwner;
             const isPublic = file.is_public === 1 || file.is_public === true;
+            const visibilityLabel = isPublic ? 'Public' : 'Private';
+            const ownerLabel = isOwner ? 'You' : (file.owner_username || `User #${file.owner_id}`);
             const dateLabel = file.created_at ? new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
             const lockedOther = !isPublic && !isOwner;
             const lockedOwner = !isPublic && isOwner;
@@ -1480,18 +1380,6 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
                     ? `<div class="file-card-locked file-card-locked-muted" style="display:flex;gap:6px;align-items:center;">${icon('lock')} Your private file</div>`
                     : '';
 
-            const ownerIcons = isOwner
-                ? `
-              <button type="button" class="btn-icon toggle-visibility-btn" data-toggle-visibility="${escapeHtml(String(file.id))}"
-                title="${isPublic ? 'Make private' : 'Make public'}" aria-label="Toggle visibility">
-                ${isPublic ? icon('globe') : icon('lock')}
-              </button>
-              <button type="button" class="btn-icon btn-icon-danger delete-btn" data-delete-file="${escapeHtml(String(file.id))}"
-                title="Delete file" aria-label="Delete file">
-                ${icon('trash')}
-              </button>`
-                : '';
-
             return `
               <div class="file-card ${highlightId && String(file.id) === highlightId ? 'card-updated' : ''}">
                 <div class="file-card-icon">
@@ -1500,16 +1388,16 @@ function renderFileCards(container, files, tabKey, searchQuery, callbacks = {}) 
                 <div class="file-card-body">
                   <div class="file-card-name">${escapeHtml(file.filename || '')}</div>
                   <div class="file-card-meta">
-                    <span class="file-type-badge ${isPublic ? 'public' : 'private'}">${escapeHtml(typeKey)}</span>
-                    ${fileOwnerLabelHtml(file)}
-                    ${visibilityPillHtml(isPublic)}
-                    ${fileSizeLabelHtml(file)}
+                    <span class="file-type-badge ${escapeHtml(typeKey)}">${escapeHtml(typeKey)}</span>
+                    <span class="visibility-badge ${isPublic ? 'public' : 'private'}">${escapeHtml(visibilityLabel)}</span>
+                    <span class="file-owner">${escapeHtml(ownerLabel)}</span>
                     <span class="file-date">${escapeHtml(dateLabel)}</span>
                   </div>
                 </div>
                 <div class="file-card-actions">
-                  ${ownerIcons}
                   <button class="btn btn-ghost btn-sm" type="button" data-view-file="${escapeHtml(String(file.id))}">View</button>
+                  ${isOwner ? `<button class="btn btn-ghost btn-sm" type="button" data-toggle-visibility="${escapeHtml(String(file.id))}">${isPublic ? 'Make Private' : 'Make Public'}</button>` : ''}
+                  ${isOwner ? `<button class="btn btn-ghost btn-sm btn-danger" type="button" data-delete-file="${escapeHtml(String(file.id))}">Delete</button>` : ''}
                 </div>
                 ${cardLocked}
               </div>
@@ -1602,23 +1490,12 @@ async function initFilesPage() {
 
     if (!files || !tabsEl) return;
 
-    let selectedFile = null;
-
     // Load file data once.
-    let allFiles = normalizeFilesListResponse(await apiGet('/api/files')).slice()
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    refreshFilesDacSummary(allFiles);
+    let allFiles = await apiGet('/api/files').then((x) => (Array.isArray(x) ? x : []));
+    allFiles = allFiles.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     let uploadPanelOpen = action === 'upload';
     let highlightFileId = null;
-
-    async function reloadFilesFromApi() {
-        const raw = await apiGet('/api/files');
-        allFiles = normalizeFilesListResponse(raw).slice()
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        refreshFilesDacSummary(allFiles);
-        rerender();
-    }
 
     function setActiveTab(tabKey) {
         currentTab = tabKey;
@@ -1652,14 +1529,14 @@ async function initFilesPage() {
             .join('');
     }
 
+    refreshTabs();
+
     function rerender() {
         refreshTabs();
-        refreshFilesDacSummary(allFiles);
         renderFileCards(files, allFiles, currentTab, searchQuery, {
             highlightFileId,
             onDelete: (deletedFileId) => {
                 allFiles = allFiles.filter((f) => String(f.id) !== String(deletedFileId));
-                refreshFilesDacSummary(allFiles);
                 rerender();
             },
             onVisibilityToggle: (fileId, nextIsPublic) => {
@@ -1720,14 +1597,15 @@ async function initFilesPage() {
     const cancelBtn = document.getElementById('files-upload-cancel');
     const submitBtn = document.getElementById('files-upload-submit');
     const typeSelect = document.getElementById('files-upload-type');
+    const visibilityRadios = document.querySelectorAll('input[name="files-is-public"]');
 
     function openUploadPanel() {
         if (!uploadPanel) return;
         uploadPanelOpen = true;
         uploadPanel.classList.remove('collapsed');
         uploadPanel.classList.add('open');
-        hideFilesUploadError();
         if (filenameInput) filenameInput.focus();
+        // Scroll into view to satisfy the action=upload requirement.
         uploadPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -1745,6 +1623,7 @@ async function initFilesPage() {
     }
 
     if (toggleBtn) toggleBtn.addEventListener('click', openUploadPanel);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeUploadPanel);
 
     if (action === 'upload') {
         openUploadPanel();
@@ -1754,171 +1633,37 @@ async function initFilesPage() {
     const defaultUploadType = currentTab !== 'all' ? currentTab : (role === 'user' ? 'invoice' : 'recipe');
     if (typeSelect) typeSelect.value = defaultUploadType;
 
-    const dropzone = document.getElementById('files-upload-dropzone');
-    const fileInput = document.getElementById('files-file-input');
-    const previewEl = document.getElementById('files-upload-file-preview');
-    const uploadErrorEl = document.getElementById('files-upload-error');
-    const dzIcon = document.querySelector('#files-upload-dropzone .upload-dropzone-icon');
-    if (dzIcon) dzIcon.innerHTML = icon('upload-cloud');
-
-    function showFilesUploadError(msg) {
-        if (!uploadErrorEl) return;
-        uploadErrorEl.textContent = msg;
-        uploadErrorEl.style.display = '';
-    }
-
-    function hideFilesUploadError() {
-        if (!uploadErrorEl) return;
-        uploadErrorEl.style.display = 'none';
-    }
-
-    function validateFilesUploadForm() {
-        const fn = document.getElementById('files-upload-filename')?.value?.trim();
-        const tp = typeSelect?.value;
-        if (submitBtn) submitBtn.disabled = !(selectedFile && fn && tp);
-    }
-
-    function resetFilesUploadForm() {
-        selectedFile = null;
-        if (fileInput) fileInput.value = '';
-        ['files-upload-filename', 'files-upload-description'].forEach((id) => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        const priv = document.querySelector('input[name="files-upload-visibility"][value="0"]');
-        if (priv) priv.checked = true;
-        if (previewEl) previewEl.style.display = 'none';
-        if (dropzone) dropzone.style.display = '';
-        if (submitBtn) submitBtn.disabled = true;
-        hideFilesUploadError();
-        const prog = document.getElementById('files-upload-progress-wrap');
-        if (prog) prog.style.display = 'none';
-        if (typeSelect) typeSelect.value = currentTab !== 'all' ? currentTab : roleDefaultType;
-        validateFilesUploadForm();
-    }
-
-    function handleFilesFileSelect(file) {
-        const MAX = 250 * 1024 * 1024;
-        if (file.size > MAX) {
-            showFilesUploadError(
-                `File is too large (${formatFileSizeKb(Math.ceil(file.size / 1024))}). Maximum size is 250 MB.`
-            );
-            return;
-        }
-        hideFilesUploadError();
-        selectedFile = file;
-        const nameEl = document.getElementById('files-upload-file-name');
-        const sizeEl = document.getElementById('files-upload-file-size');
-        if (nameEl) nameEl.textContent = file.name;
-        if (sizeEl) sizeEl.textContent = formatFileSizeKb(Math.ceil(file.size / 1024));
-        if (previewEl) previewEl.style.display = '';
-        if (dropzone) dropzone.style.display = 'none';
-        const fnEl = document.getElementById('files-upload-filename');
-        if (fnEl && !fnEl.value) fnEl.value = file.name;
-        validateFilesUploadForm();
-    }
-
-    if (dropzone && fileInput) {
-        dropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
-        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-            const f = e.dataTransfer.files && e.dataTransfer.files[0];
-            if (f) handleFilesFileSelect(f);
-        });
-        fileInput.addEventListener('change', () => {
-            const f = fileInput.files && fileInput.files[0];
-            if (f) handleFilesFileSelect(f);
-        });
-    }
-
-    document.getElementById('files-upload-file-remove')?.addEventListener('click', () => {
-        resetFilesUploadForm();
-    });
-
-    document.getElementById('files-upload-filename')?.addEventListener('input', validateFilesUploadForm);
-    typeSelect?.addEventListener('change', validateFilesUploadForm);
-
     if (submitBtn) {
-        submitBtn.addEventListener('click', () => {
-            if (!selectedFile) return;
-
+        submitBtn.addEventListener('click', async () => {
             const filename = document.getElementById('files-upload-filename')?.value?.trim();
-            const file_type = typeSelect?.value;
-            const description = document.getElementById('files-upload-description')?.value?.trim() || '';
-            const is_public = document.querySelector('input[name="files-upload-visibility"]:checked')?.value || '0';
+            const file_type = document.getElementById('files-upload-type')?.value;
+            const description = document.getElementById('files-upload-description')?.value?.trim() || null;
+            const isPublic = document.querySelector('input[name="files-is-public"]:checked')?.value === '1';
 
-            if (!filename || !file_type) {
-                showFilesUploadError('Please fill in all required fields.');
+            if (!filename) {
+                showToast('Please enter a filename.', 'error');
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('filename', filename);
-            formData.append('description', description);
-            formData.append('file_type', file_type);
-            formData.append('is_public', is_public);
-
-            const token = sessionStorage.getItem('token');
-            const progressWrap = document.getElementById('files-upload-progress-wrap');
-            const progressFill = document.getElementById('files-upload-progress-fill');
-            const progressText = document.getElementById('files-upload-progress-text');
-
-            submitBtn.disabled = true;
-            hideFilesUploadError();
-            if (progressWrap) progressWrap.style.display = '';
-            if (progressFill) progressFill.style.width = '0%';
-            if (progressText) progressText.textContent = '0%';
-
-            const xhr = new XMLHttpRequest();
-
-            xhr.upload.addEventListener('progress', (e) => {
-                if (!e.lengthComputable) return;
-                const pct = Math.round((e.loaded / e.total) * 100);
-                if (progressFill) progressFill.style.width = `${pct}%`;
-                if (progressText) progressText.textContent = `${pct}%`;
-            });
-
-            xhr.addEventListener('load', () => {
-                if (progressWrap) progressWrap.style.display = 'none';
-                try {
-                    const data = JSON.parse(xhr.responseText || '{}');
-                    if (xhr.status === 201) {
-                        closeUploadPanel();
-                        resetFilesUploadForm();
-                        showToast('File uploaded successfully.', 'success');
-                        reloadFilesFromApi();
-                    } else {
-                        showFilesUploadError(data.error || 'Upload failed. Please try again.');
-                        submitBtn.disabled = false;
-                    }
-                } catch (_) {
-                    showFilesUploadError('Unexpected server response. Please try again.');
-                    submitBtn.disabled = false;
-                }
-            });
-
-            xhr.addEventListener('error', () => {
-                if (progressWrap) progressWrap.style.display = 'none';
-                showFilesUploadError('Network error. Please check your connection.');
-                submitBtn.disabled = false;
-            });
-
-            xhr.open('POST', `${API_BASE}/api/files`);
-            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-            xhr.send(formData);
-        });
-    }
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            closeUploadPanel();
-            resetFilesUploadForm();
+            try {
+                const res = await apiPost('/api/files', { filename, description, file_type, is_public: isPublic });
+                const newFile = {
+                    id: res.fileId,
+                    filename,
+                    description,
+                    file_type,
+                    owner_id: null,
+                    is_public: isPublic ? 1 : 0,
+                    isOwner: true,
+                    created_at: new Date().toISOString()
+                };
+                allFiles.unshift(newFile);
+                closeUploadPanel();
+                showToast('File added successfully.', 'success');
+                rerender();
+            } catch (e) {
+                showToast(String(e.message || 'Upload failed'), 'error');
+            }
         });
     }
 }

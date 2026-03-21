@@ -95,33 +95,6 @@ async function apiPatch(endpoint, body) {
 }
 
 /**
- * POST multipart/form-data (no JSON Content-Type — browser sets boundary).
- * @returns {Promise<{ ok: boolean, status: number, data: object }>}
- */
-async function apiPostFormData(endpoint, formData) {
-    const token = sessionStorage.getItem('token');
-    const headers = {};
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: formData
-    });
-
-    let data = {};
-    try {
-        data = await response.json();
-    } catch (e) {
-        data = {};
-    }
-
-    return { ok: response.ok, status: response.status, data };
-}
-
-/**
  * Check if user is authenticated
  */
 function isAuthenticated() {
